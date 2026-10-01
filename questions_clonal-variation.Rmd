@@ -1,0 +1,416 @@
+```{r setup, include=F}
+library(ComplexHeatmap)
+library(pheatmap)
+library(eulerr)
+library(tidyverse)
+source("scripts/helpers.R")
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 5,
+  fig.height = 7,
+  fig.show = "hold",
+  out.width = "50%"
+)
+```
+
+```{r read data, include=F}
+source("scripts/main-data.R")
+source("scripts/compare-genelists-function.R")
+```
+
+clonalQ1: RN: For  wt_NS how many DEGs are different (≥2/≤0.5 -fold, P ≤ 0.05) compared to: a) sham_NS and b) to KO_NS?
+
+AG: I'm going to take this to mean significantly different genes in sham and KO since I did the NS-only dea with wt as reference level.
+
+```{r clonalQ1a}
+sham_ns_74 = dea_ns %>%
+  filter(group == "sham_naive", sig != "ns") %>%
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  sham_ns_74 = sham_ns_74,
+  wt_up_738 = wt_up_738
+)
+
+plot_gene_sets(
+  genelists,
+  mat_ns,
+  mat_cols = 1:8,
+  plotType = "euler",
+  heatmapTitle = "log2tpm_NS"
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = 1:8,
+  plotType = "euler",
+  heatmapTitle = "log2fold"
+)
+
+
+
+cleanup_objects()
+```
+
+```{r clonalQ1b}
+ko_ns_682 = dea_ns %>%
+  filter(group == "TAK1KO_naive", sig != "ns") %>%
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  ko_ns_682 = ko_ns_682,
+  wt_up_738 = wt_up_738
+)
+
+plot_gene_sets(
+  genelists,
+  mat_ns,
+  mat_cols = c(1:4, 9:12),
+  plotType = "euler",
+  heatmapTitle = "log2tpm_NS"
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = c(1:4, 9:12),
+  plotType = "euler",
+  heatmapTitle = "log2fold"
+)
+
+# paste(
+#   intersect(ko_ns_682, wt_up_738),
+#   collapse = ", "
+# )
+
+
+cleanup_objects()
+```
+
+
+
+clonalQ2: RN: For  wt_IL-1β how many DEGs are different (≥2/≤0.5 -fold, P ≤ 0.05) compared to: a) sham IL-1β and b) to KO IL-1β?
+
+AG: I'm going to take this to mean significantly different genes in sham and KO since I did the IL1B-only dea with wt as reference level.
+
+
+```{r clonalQ2a}
+sham_il1b_80 = dea_il1b %>%
+  filter(group == "sham_naive", sig != "ns") %>%
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  sham_il1b_80 = sham_il1b_80,
+  wt_up_738 = wt_up_738
+)
+
+plot_gene_sets(
+  genelists,
+  mat_il1b,
+  mat_cols = 1:8,
+  plotType = "euler",
+  heatmapTitle = "log2tpm_IL1B"
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = 1:8,
+  plotType = "euler",
+  heatmapTitle = "log2fold"
+)
+
+
+
+cleanup_objects()
+```
+
+```{r clonalQ2b}
+ko_il1b_1484 = dea_il1b %>%
+  filter(group == "TAK1KO_naive", sig != "ns") %>%
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  ko_il1b_1484 = ko_il1b_1484,
+  wt_up_738 = wt_up_738
+)
+
+plot_gene_sets(
+  genelists,
+  mat_il1b,
+  mat_cols = c(1:4, 9:12),
+  plotType = "euler",
+  heatmapTitle = "log2tpm_IL1B"
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = c(1:4, 9:12),
+  plotType = "euler",
+  heatmapTitle = "log2fold"
+)
+
+cleanup_objects()
+```
+
+
+
+clonalQ3: RN: I presume that most of the differences will be clonal and therefore common to both the above? True/false – let’s see?
+
+```{r clonalQ3a, fig.height=10}
+sham_ns_74 = dea_ns %>%
+  filter(group == "sham_naive", sig != "ns") %>%
+  pull(Gene)
+
+sham_il1b_80 = dea_il1b %>%
+  filter(group == "sham_naive", sig != "ns") %>%
+  pull(Gene)
+
+genelists = list(
+  sham_ns_74 = sham_ns_74,
+  sham_il1b_80 = sham_il1b_80
+)
+
+# plot_gene_sets(
+#   genelists,
+#   mat_ns,
+#   mat_cols = 1:8,
+#   plotType = "euler",
+#   heatmapTitle = "log2tpm_NS"
+# )
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = 1:8,
+  plotType = "euler",
+  heatmapTitle = "log2fold",
+  heatmapRowNames = TRUE
+)
+
+# ===== drop log2fold criteria =====
+
+union_110 = unique(c(sham_ns_74, sham_il1b_80))
+
+sham_ns_l2f_dropped = dea_ns %>%
+  filter(group == "sham_naive", FDR <= 0.05, Gene %in% union_110) %>%
+  pull(Gene)
+
+sham_il1b_l2f_dropped = dea_il1b %>%
+  filter(group == "sham_naive", FDR <= 0.05, Gene %in% union_110) %>%
+  pull(Gene)
+
+genelists = list(
+  sham_ns_l2f_dropped = sham_ns_l2f_dropped,
+  sham_il1b_l2f_dropped = sham_il1b_l2f_dropped
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = 1:8,
+  plotType = "euler",
+  heatmapTitle = "log2fold",
+  heatmapRowNames = TRUE
+)
+
+
+
+cleanup_objects()
+
+```
+
+"cxcl5-like genes"
+
+```{r clonalQ3b, fig.width=7}
+ko_ns_682 = dea_ns %>%
+  filter(group == "TAK1KO_naive", sig != "ns") %>%
+  pull(Gene)
+
+ko_il1b_1484 = dea_il1b %>%
+  filter(group == "TAK1KO_naive", sig != "ns") %>%
+  pull(Gene)
+
+genelists = list(
+  ko_ns_682 = ko_ns_682,
+  ko_il1b_1484 = ko_il1b_1484
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = c(1:4, 9:12),
+  plotType = "euler",
+  heatmapTitle = "log2fold"
+)
+
+# cxcl5-like genes are invisible to fold-based analysis, but are knocked out
+# and restored with TAK1 KO/rescue. 
+
+# they exist at the intersect between ko_ns_682 and ko_il1b_1484.
+# there are 489 suspected cxcl5-like genes.
+
+cxcl5_like_489 = intersect(ko_ns_682, ko_il1b_1484)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  cxcl5_like_489 = cxcl5_like_489,
+  wt_up_738 = wt_up_738
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = c(1:4, 9:12),
+  plotType = "euler",
+  heatmapTitle = "log2fold"
+)
+
+cxcl5_like_up = intersect(cxcl5_like_489, wt_up_738)
+
+paste(cxcl5_like_up, collapse = ", ")
+
+Heatmap(
+  mat_combined[cxcl5_like_up, ],
+  cluster_columns = F,
+  show_column_names = F,
+  column_title_rot = 90, 
+  
+  show_row_names = T,
+  row_names_gp = gpar(cex = 0.8),
+  
+  col = generic_l2f_heatmap_colors(mat_combined[cxcl5_like_up, ]),
+  
+  name = "log2tpm",
+  
+  column_split = factor(
+    c(
+      rep("WT NS", 4),
+      rep("WT IL1B", 4),
+      rep("sham NS", 4),
+      rep("sham IL1B", 4),
+      rep("KO NS", 4),
+      rep("KO IL1B", 4),
+      rep("lip NS", 4),
+      rep("lip IL1B", 4),
+      rep("nat NS", 4),
+      rep("nat IL1B", 4),
+      rep("D175A NS", 4),
+      rep("D175A IL1B", 4)
+    ),
+    levels = c(
+      "WT NS",
+      "WT IL1B",
+      "sham NS",
+      "sham IL1B",
+      "KO NS",
+      "KO IL1B",
+      "lip NS",
+      "lip IL1B",
+      "nat NS",
+      "nat IL1B",
+      "D175A NS",
+      "D175A IL1B"
+    )
+  )
+)
+
+Heatmap(
+  mat[cxcl5_like_up, ],
+  cluster_columns = F,
+  show_column_names = T,
+  column_names_rot = 45, 
+  show_row_names = T,
+  row_names_gp = gpar(cex = 0.5),
+  col = generic_l2f_heatmap_colors(mat_combined[cxcl5_like_up, ]),
+  name = "log2fold"
+)
+
+
+cleanup_objects()
+
+```
+
+
+
+
+clonalQ4 and 5: 
+
+For DEGs that are differentially expressed in 1 &/or 2, how many get rescued by native TAK1 smRNA?
+
+For DEGs that are differentially expressed in 1 &/or 2, how many get rescued by D175A TAK1 smRNA?
+
+```{r, fig.width=7}
+sham_ns_74 = dea_ns %>%
+  filter(group == "sham_naive", sig != "ns") %>%
+  pull(Gene)
+
+ko_ns_682 = dea_ns %>%
+  filter(group == "TAK1KO_naive", sig != "ns") %>%
+  pull(Gene)
+
+nat_ns_861 = dea_ns %>%
+  filter(group == "TAK1KO_TAK1-smRNA", sig == "up") %>%
+  pull(Gene)
+
+mutant_ns_336 = dea_ns %>%
+  filter(group == "TAK1KO_mTAK1-smRNA", sig == "up") %>%
+  pull(Gene)
+
+
+
+genelists = list(
+  sham_ns_74 = sham_ns_74,
+  ko_ns_682 = ko_ns_682,
+  nat_ns_861 = nat_ns_861
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  plotType = "euler"
+)
+
+
+
+genelists = list(
+  sham_ns_74 = sham_ns_74,
+  ko_ns_682 = ko_ns_682,
+  mutant_ns_336 = mutant_ns_336
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  plotType = "euler"
+)
+
+
+cleanup_objects()
+
+```
+

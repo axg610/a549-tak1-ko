@@ -1,0 +1,868 @@
+```{r setup, include=F}
+library(ComplexHeatmap)
+library(pheatmap)
+library(eulerr)
+library(tidyverse)
+source("scripts/helpers.R")
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 5,
+  fig.height = 7,
+  fig.show = "hold",
+  out.width = "50%"
+)
+```
+
+```{r read data, include=F}
+source("scripts/main-data.R")
+source("scripts/compare-genelists-function.R")
+```
+
+738 DEGs upregulated by IL-1β (≥2-fold, P ≤ 0.05) 
+
+
+
+
+Q1a: RE sham - How many DEGs are induced (≥2-fold, P ≤ 0.05) in the sham? How many are significantly different (≥2/≤0.5 -fold, P ≤ 0.05) from wt?
+
+```{r}
+# ===== with log2fold and p value criteria =====
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+sham_up_751 = dea %>% 
+  filter(condition == "sham", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  wt_up_738 = wt_up_738,
+  sham_up_751 = sham_up_751
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = 1:8
+)
+
+# ===== calculate correlations ======
+
+for(c in c("01", "11", "10")){
+  
+  goi = plot_gene_sets(
+    genelists,
+    mat,
+    output = "codes"
+  ) %>%
+    filter(code == c) %>%
+    pull(Gene)
+  
+  df = dea %>%
+    filter(group %in% c("WT_naive", "sham_naive"), Gene %in% goi) %>%
+    select(Gene, group, log2fold) %>%
+    pivot_wider(names_from = "group", values_from = "log2fold")
+  
+  cor = cor.test(df$WT_naive, df$sham_naive, method = "pearson")$estimate[[1]]
+  
+  print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
+  
+  rm(c, goi, df, cor)
+  
+}
+
+
+cleanup_objects()
+```
+
+Q1a.1: effect of just going with the P-value (i.e., drop fold criteria?) Does it collapse into a single group.
+
+```{r}
+# ===== use log2fold + pvalue to select, but then drop log2fold =====
+
+# establish 844 gene pool
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+sham_up_751 = dea %>% 
+  filter(condition == "sham", sig == "up") %>% 
+  pull(Gene)
+
+union_844 = unique(c(wt_up_738, sham_up_751))
+
+# pull pool genes, then drop to pvalue criteria only only
+
+wt_up_l2f_dropped = dea %>%
+  filter(condition == "WT", Gene %in% union_844) %>%
+  filter(FDR <= 0.05, log2fold > 0) %>%
+  pull(Gene)
+
+sham_up_l2f_dropped = dea %>%
+  filter(condition == "sham", Gene %in% union_844) %>%
+  filter(FDR <= 0.05, log2fold > 0) %>%
+  pull(Gene)
+
+genelists = list(
+  wt_up_l2f_dropped = wt_up_l2f_dropped,
+  sham_up_l2f_dropped = sham_up_l2f_dropped
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = 1:8
+)
+
+# ===== calculate correlations ======
+
+for(c in c("01", "11", "10")){
+  
+  goi = plot_gene_sets(
+    genelists,
+    mat,
+    output = "codes"
+  ) %>%
+    filter(code == c) %>%
+    pull(Gene)
+  
+  df = dea %>%
+    filter(group %in% c("WT_naive", "sham_naive"), Gene %in% goi) %>%
+    select(Gene, group, log2fold) %>%
+    pivot_wider(names_from = "group", values_from = "log2fold")
+  
+  cor = cor.test(df$WT_naive, df$sham_naive, method = "pearson")$estimate[[1]]
+  
+  print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
+  
+  rm(c, goi, df, cor)
+  
+}
+
+cleanup_objects()
+
+```
+
+
+Q1b: In how many genes is the IL1B response affected by sham (P<= 0.05)?
+
+```{r fig.height=3, fig.width=4}
+sham_il1b_interaction = read_tsv("data/sham_IL1B_interaction_test.txt")
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+sham_up_751 = dea %>% 
+  filter(condition == "sham", sig == "up") %>% 
+  pull(Gene)
+
+union_844 = unique(c(wt_up_738, sham_up_751))
+
+df = as.data.frame(union_844, nm = "Gene") %>%
+  left_join(
+    sham_il1b_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+hist(df$FDR, breaks = 100)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction)
+
+cleanup_objects()
+```
+
+
+
+
+Q2a: RE KO - How many DEGs are induced (≥2-fold, P ≤ 0.05) in the KO? How many are significantly different (≥2/≤0.5 -fold, P ≤ 0.05) from wt?
+
+```{r}
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  wt_up_738 = wt_up_738,
+  ko_up_71 = ko_up_71
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = c(1:4, 9:12)
+)
+
+# intersect(wt_up_738, ko_up_71) %>% paste(collapse = ", ")
+# 
+# setdiff(ko_up_71, wt_up_738)
+
+# ===== calculate correlations ======
+
+for(c in c("01", "11", "10")){
+  
+  goi = plot_gene_sets(
+    genelists,
+    mat,
+    output = "codes"
+  ) %>%
+    filter(code == c) %>%
+    pull(Gene)
+  
+  df = dea %>%
+    filter(group %in% c("WT_naive", "TAK1KO_naive"), Gene %in% goi) %>%
+    select(Gene, group, log2fold) %>%
+    pivot_wider(names_from = "group", values_from = "log2fold")
+  
+  cor = cor.test(df$WT_naive, df$TAK1KO_naive, method = "pearson")$estimate[[1]]
+  
+  print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
+  
+  rm(c, goi, df, cor)
+  
+}
+
+cleanup_objects()
+```
+
+Q2a.1: effect of just going with the P-value (i.e., drop fold criteria?) Does it collapse into a single group.
+
+```{r}
+# ===== use log2fold + pvalue to select, but then drop log2fold =====
+
+# establish 741 gene pool
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+union_741 = unique(c(wt_up_738, ko_up_71))
+
+# pull pool genes, then drop to pvalue criteria only only
+
+wt_up_l2f_dropped = dea %>%
+  filter(condition == "WT", Gene %in% union_741) %>%
+  filter(FDR <= 0.05, log2fold > 0) %>%
+  pull(Gene)
+
+ko_up_l2f_dropped = dea %>%
+  filter(group == "TAK1KO_naive", Gene %in% union_741) %>%
+  filter(FDR <= 0.05, log2fold > 0) %>%
+  pull(Gene)
+
+genelists = list(
+  wt_up_l2f_dropped = wt_up_l2f_dropped,
+  ko_up_l2f_dropped = ko_up_l2f_dropped
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = 1:8
+)
+
+# ===== calculate correlations ======
+
+for(c in c("01", "11", "10")){
+  
+  goi = plot_gene_sets(
+    genelists,
+    mat,
+    output = "codes"
+  ) %>%
+    filter(code == c) %>%
+    pull(Gene)
+  
+  df = dea %>%
+    filter(group %in% c("WT_naive", "sham_naive"), Gene %in% goi) %>%
+    select(Gene, group, log2fold) %>%
+    pivot_wider(names_from = "group", values_from = "log2fold")
+  
+  cor = cor.test(df$WT_naive, df$sham_naive, method = "pearson")$estimate[[1]]
+  
+  print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
+  
+  rm(c, goi, df, cor)
+  
+}
+
+cleanup_objects()
+
+```
+
+Q2b: In how many genes is the IL1B response affected by TAK1KO (P<= 0.05)?
+
+```{r fig.height=3, fig.width=4}
+tak1ko_il1b_interaction = read_tsv("data/KO_IL1B_interaction_test.txt")
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+union_741 = unique(c(wt_up_738, ko_up_71))
+
+df = as.data.frame(union_741, nm = "Gene") %>%
+  left_join(
+    tak1ko_il1b_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+hist(df$FDR, breaks = 100)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction)
+
+summary(df$log2diff)
+summary(df$FDR)
+
+cleanup_objects()
+```
+
+
+
+
+
+
+RN, Q3: RE KO+lipid – Does the lipid change anything? So: How many DEGs are also induced (≥2-fold, P ≤ 0.05) in the KO+lipid? How many are significantly different (≥2/≤0.5 -fold, P ≤ 0.05) from KO? Ideally there are similar numbers to the KO and that very few DEGs change.
+
+```{r}
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+lipid_up_68 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "lipid", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  ko_up_71 = ko_up_71,
+  lipid_up_68 = lipid_up_68
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = c(9:16)
+)
+
+# ===== calculate correlations ======
+
+for(c in c("01", "11", "10")){
+  
+  goi = plot_gene_sets(
+    genelists,
+    mat,
+    output = "codes"
+  ) %>%
+    filter(code == c) %>%
+    pull(Gene)
+  
+  df = dea %>%
+    filter(group %in% c("TAK1KO_naive", "TAK1KO_lipid"), Gene %in% goi) %>%
+    select(Gene, group, log2fold) %>%
+    pivot_wider(names_from = "group", values_from = "log2fold")
+  
+  cor = cor.test(df$TAK1KO_naive, df$TAK1KO_lipid, method = "pearson")$estimate[[1]]
+  
+  print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
+  
+  rm(c, goi, df, cor)
+  
+}
+
+cleanup_objects()
+```
+
+Q3.1: effect of just going with the P-value (i.e., drop fold criteria?) Does it collapse into a single group.
+
+```{r}
+# ===== use log2fold + pvalue to select, but then drop log2fold =====
+
+# establish 78 gene pool
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+lipid_up_68 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "lipid", sig == "up") %>% 
+  pull(Gene)
+
+union_78 = unique(c(ko_up_71, lipid_up_68))
+
+# pull pool genes, then drop to pvalue criteria only only
+
+ko_up_l2f_dropped = dea %>%
+  filter(group == "TAK1KO_naive", Gene %in% union_78) %>%
+  filter(FDR <= 0.05, log2fold > 0) %>%
+  pull(Gene)
+
+lipid_up_l2f_dropped = dea %>%
+  filter(group == "TAK1KO_lipid", Gene %in% union_78) %>%
+  filter(FDR <= 0.05, log2fold > 0) %>%
+  pull(Gene)
+
+genelists = list(
+  ko_up_l2f_dropped = ko_up_l2f_dropped,
+  lipid_up_l2f_dropped = lipid_up_l2f_dropped
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = 1:8
+)
+
+# ===== calculate correlations ======
+
+for(c in c("01", "11", "10")){
+  
+  goi = plot_gene_sets(
+    genelists,
+    mat,
+    output = "codes"
+  ) %>%
+    filter(code == c) %>%
+    pull(Gene)
+  
+  df = dea %>%
+    filter(group %in% c("TAK1KO_naive", "TAK1KO_lipid"), Gene %in% goi) %>%
+    select(Gene, group, log2fold) %>%
+    pivot_wider(names_from = "group", values_from = "log2fold")
+  
+  cor = cor.test(df$TAK1KO_naive, df$TAK1KO_lipid, method = "pearson")$estimate[[1]]
+  
+  print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
+  
+  rm(c, goi, df, cor)
+  
+}
+
+cleanup_objects()
+
+```
+
+
+
+
+
+
+
+
+
+
+Q4a: RE native TAK1 smRNA in the KO cells: a) How many DEGs are induced (≥2-fold, P ≤ 0.05) in the TAK1 KO + TAK1 smRNA? b) Compared to TAK1 KO, how many DEGs are significantly different (≥2/≤0.5 -fold, P ≤ 0.05)? Note: could be legit to do this vs KO+lipid?
+
+```{r}
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+rescue_up_540 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  ko_up_71 = ko_up_71,
+  wt_up_738= wt_up_738,
+  rescue_up_540 = rescue_up_540
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = c(1:4, 9:12, 17:20),
+  plotType = "euler"
+)
+
+# intersect(ko_up_71, rescue_up_540) %>% paste(collapse = ", ")
+
+cleanup_objects()
+```
+
+Q4a.1: take the above Venn and drop the log2fold criteria? See if it collapses.
+
+```{r}
+# establish gene pool
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+rescue_up_540 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+union_857 = unique(c(
+  ko_up_71,
+  wt_up_738,
+  rescue_up_540
+))
+
+# re-establish gene pools with l2f threshold dropped
+
+ko_up_l2f_dropped = dea %>%
+  filter(
+    condition == "TAK1KO", 
+    rescue == "naive", 
+    FDR <= 0.05,
+    Gene %in% union_857
+    ) %>%
+  pull(Gene)
+
+wt_up_l2f_dropped = dea %>%
+  filter(
+    condition == "WT", 
+    FDR <= 0.05,
+    Gene %in% union_857
+    ) %>%
+  pull(Gene)
+
+rescue_up_l2f_dropped = dea %>%
+  filter(
+    condition == "TAK1KO",
+    rescue == "TAK1-smRNA",
+    FDR <= 0.05,
+    Gene %in% union_857
+  ) %>%
+  pull(Gene)
+
+genelists = list(
+  ko_up_l2f_dropped = ko_up_l2f_dropped,
+  wt_up_l2f_dropped = wt_up_l2f_dropped,
+  rescue_up_l2f_dropped = rescue_up_l2f_dropped
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  mat_cols = c(1:4, 9:12, 17:20),
+  plotType = "euler"
+)
+
+
+```
+
+
+Q4b: effect of introducing native TAK1 smRNA to TAK1KO?
+
+```{r, fig.height=3, fig.width=4}
+rescue_interaction = read_tsv("data/nativeRescue_interaction_test.txt")
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+rescue_up_540 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+union_857 = unique(c(
+  ko_up_71,
+  wt_up_738,
+  rescue_up_540
+))
+
+df = rescue_interaction %>%
+  filter(Gene %in% union_857)
+
+hist(df$log2diff, breaks = 100)
+hist(df$FDR, breaks = 100)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction)
+
+summary(df$log2diff)
+summary(df$FDR)
+
+cleanup_objects()
+```
+
+
+Q4b side calculation: calculate mean % rescue using mean effect of KO (Q2B) and mean effect of rescue (Q4B)
+
+```{r, fig.height=3, fig.width=4}
+rescue_interaction = read_tsv("data/nativeRescue_interaction_test.txt")
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+union_741 = unique(c(
+  ko_up_71,
+  wt_up_738
+))
+
+df = rescue_interaction %>%
+  filter(Gene %in% union_741)
+
+summary(df$log2diff)
+
+1 * 0.35 * 2^1.0774
+
+# = 0.74% induction back.
+
+cleanup_objects()
+```
+
+
+Q4c: compare WT and rescued IL1B response?
+
+```{r, fig.height=3, fig.width=4}
+wt_rescue_interaction = read_tsv("data/wt_vs_rescued_interaction_test.txt")
+
+# establish gene pool
+
+ko_up_71 = dea %>%
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>%
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+rescue_up_540 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+union_857 = unique(c(
+  ko_up_71,
+  wt_up_738,
+  rescue_up_540
+))
+
+df = as.data.frame(union_857, nm = "Gene") %>%
+  left_join(
+    wt_rescue_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+hist(df$FDR, breaks = 100)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction)
+
+summary(df$log2diff)
+summary(df$FDR)
+
+cleanup_objects()
+
+```
+
+Q4c side calculation: calculate mean % rescue using mean diff between WT and rescue (Q4C)
+
+```{r, fig.height=3, fig.width=4}
+wt_rescue_interaction = read_tsv("data/wt_vs_rescued_interaction_test.txt")
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+union_741 = unique(c(
+  ko_up_71,
+  wt_up_738
+))
+
+df = wt_rescue_interaction %>%
+  filter(Gene %in% union_741)
+
+summary(df$log2diff)
+
+1 * 2^-0.50471
+
+# = 0.70% induction back.
+
+cleanup_objects()
+```
+
+
+
+
+
+
+
+<!-- Q5: RE D175A TAK1 smRNA in the KO cells: a) How many DEGs are induced (≥2-fold, P ≤ 0.05) in the TAK1 KO + TAK1 smRNA? b) Compared to TAK1 KO, how many DEGs are significantly different (≥2/≤0.5 -fold, P ≤ 0.05)? Note: could be legit to do this vs KO+lipid? -->
+
+<!-- ```{r} -->
+<!-- ko_up_71 = dea %>%  -->
+<!--   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>%  -->
+<!--   pull(Gene) -->
+
+<!-- mutant_up_139 = dea %>%  -->
+<!--   filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "up") %>%  -->
+<!--   pull(Gene) -->
+
+<!-- genelists = list( -->
+<!--   ko_up_71 = ko_up_71, -->
+<!--   mutant_up_139 = mutant_up_139 -->
+<!-- ) -->
+
+<!-- plot_gene_sets( -->
+<!--   genelists, -->
+<!--   mat, -->
+<!--   mat_cols = c(9:12, 21:24) -->
+<!-- ) -->
+
+<!-- intersect(ko_up_71, mutant_up_139) %>% paste(collapse = ", ") -->
+
+<!-- cleanup_objects() -->
+<!-- ``` -->
+
+<!-- ```{r fig.height=7, fig.width=7} -->
+<!-- wt_up_738 = dea %>%  -->
+<!--   filter(condition == "WT", sig == "up") %>%  -->
+<!--   pull(Gene) -->
+
+<!-- mutant_up_139 = dea %>%  -->
+<!--   filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "up") %>%  -->
+<!--   pull(Gene) -->
+
+<!-- genelists = list( -->
+<!--   wt_up_738 = wt_up_738, -->
+<!--   mutant_up_139 = mutant_up_139 -->
+<!-- ) -->
+
+<!-- plot_gene_sets( -->
+<!--   genelists, -->
+<!--   mat, -->
+<!--   mat_cols = c(1:4, 21:24) -->
+<!-- ) -->
+
+
+<!-- cor = tpm %>%  -->
+<!--   filter(group %in% c("WT_naive", "TAK1KO_mTAK1-smRNA")) %>% -->
+<!--   filter(Gene %in% unique(c(wt_up_738, mutant_up_139))) %>% -->
+<!--   select(Gene, group, log2fold) %>% -->
+<!--   group_by(Gene, group) %>% -->
+<!--   summarize(log2fold = mean(log2fold), .groups = "drop") %>% -->
+<!--   pivot_wider(names_from = "group", values_from = "log2fold") -->
+
+<!-- cor.test(cor$`TAK1KO_mTAK1-smRNA`, cor$WT_naive, method = "pearson") -->
+
+<!-- ggplot( -->
+<!--   cor, -->
+<!--   aes(x = WT_naive, y = `TAK1KO_mTAK1-smRNA`) -->
+<!-- ) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(method = "lm") + -->
+<!--   theme(aspect.ratio = 1) -->
+
+<!-- # cleanup_objects() -->
+<!-- ``` -->
+
+<!-- ```{r a confident rescue list} -->
+<!-- wt_up_738 = dea %>%  -->
+<!--   filter(condition == "WT", sig == "up") %>%  -->
+<!--   pull(Gene) -->
+
+<!-- ko_up_71 = dea %>%  -->
+<!--   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>%  -->
+<!--   pull(Gene) -->
+
+<!-- rescue_up_540 = dea %>%  -->
+<!--   filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>%  -->
+<!--   pull(Gene) -->
+
+<!-- mutant_up_139 = dea %>%  -->
+<!--   filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "up") %>%  -->
+<!--   pull(Gene) -->
+
+
+<!-- confident_rescue = setdiff( -->
+<!--   intersect(wt_up_738, rescue_up_540), -->
+<!--   # union(ko_up_71, mutant_up_139) -->
+<!--   # ko_up_71 -->
+<!--   mutant_up_139 -->
+<!-- ) -->
+
+<!-- paste0(confident_rescue, collapse = ", ") -->
+<!-- ``` -->
+
+
+
+
