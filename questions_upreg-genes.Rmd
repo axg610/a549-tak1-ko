@@ -158,24 +158,23 @@ wt_up_738 = dea %>%
   filter(condition == "WT", sig == "up") %>% 
   pull(Gene)
 
-sham_up_751 = dea %>% 
-  filter(condition == "sham", sig == "up") %>% 
-  pull(Gene)
+# sham_up_751 = dea %>% 
+#   filter(condition == "sham", sig == "up") %>% 
+#   pull(Gene)
+# 
+# union_844 = unique(c(wt_up_738, sham_up_751))
 
-union_844 = unique(c(wt_up_738, sham_up_751))
-
-df = as.data.frame(union_844, nm = "Gene") %>%
+df = as.data.frame(wt_up_738, nm = "Gene") %>%
   left_join(
     sham_il1b_interaction %>% 
       select(Gene, log2diff, FDR)
     )
 
 hist(df$log2diff, breaks = 100)
-hist(df$FDR, breaks = 100)
+summary(df$log2diff)
 
-df %>%
-  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
-  count(sig)
+hist(df$FDR, breaks = 100)
+summary(df$FDR)
 
 df %>%
   mutate(
@@ -185,7 +184,13 @@ df %>%
       log2diff >= 0  ~ "+ve log2diff"
     )
   ) %>%
-  count(direction)
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
 
 cleanup_objects()
 ```
@@ -325,24 +330,24 @@ wt_up_738 = dea %>%
   filter(condition == "WT", sig == "up") %>% 
   pull(Gene)
 
-ko_up_71 = dea %>% 
-  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
-  pull(Gene)
+# ko_up_71 = dea %>% 
+#   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+#   pull(Gene)
 
-union_741 = unique(c(wt_up_738, ko_up_71))
+# union_741 = unique(c(wt_up_738, ko_up_71))
 
-df = as.data.frame(union_741, nm = "Gene") %>%
+df = as.data.frame(wt_up_738, nm = "Gene") %>%
   left_join(
     tak1ko_il1b_interaction %>% 
       select(Gene, log2diff, FDR)
     )
 
 hist(df$log2diff, breaks = 100)
-hist(df$FDR, breaks = 100)
+summary(df$log2diff)
 
-df %>%
-  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
-  count(sig)
+
+hist(df$FDR, breaks = 100)
+summary(df$FDR)
 
 df %>%
   mutate(
@@ -352,10 +357,13 @@ df %>%
       log2diff >= 0  ~ "+ve log2diff"
     )
   ) %>%
-  count(direction)
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
 
-summary(df$log2diff)
-summary(df$FDR)
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
 
 cleanup_objects()
 ```
@@ -599,33 +607,34 @@ Q4b: effect of introducing native TAK1 smRNA to TAK1KO?
 ```{r, fig.height=3, fig.width=4}
 rescue_interaction = read_tsv("data/nativeRescue_interaction_test.txt")
 
-ko_up_71 = dea %>% 
-  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
-  pull(Gene)
+# ko_up_71 = dea %>% 
+#   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+#   pull(Gene)
 
 wt_up_738 = dea %>% 
   filter(condition == "WT", sig == "up") %>% 
   pull(Gene)
 
-rescue_up_540 = dea %>% 
-  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
-  pull(Gene)
+# rescue_up_540 = dea %>% 
+#   filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+#   pull(Gene)
 
-union_857 = unique(c(
-  ko_up_71,
-  wt_up_738,
-  rescue_up_540
-))
+# union_857 = unique(c(
+#   ko_up_71,
+#   wt_up_738,
+#   rescue_up_540
+# ))
 
 df = rescue_interaction %>%
-  filter(Gene %in% union_857)
+  filter(Gene %in% wt_up_738)
 
 hist(df$log2diff, breaks = 100)
-hist(df$FDR, breaks = 100)
+summary(df$log2diff)
 
-df %>%
-  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
-  count(sig)
+
+hist(df$FDR, breaks = 100)
+summary(df$FDR)
+
 
 df %>%
   mutate(
@@ -635,41 +644,15 @@ df %>%
       log2diff >= 0  ~ "+ve log2diff"
     )
   ) %>%
-  count(direction)
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
 
-summary(df$log2diff)
-summary(df$FDR)
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
 
-cleanup_objects()
-```
 
-
-Q4b side calculation: calculate mean % rescue using mean effect of KO (Q2B) and mean effect of rescue (Q4B)
-
-```{r, fig.height=3, fig.width=4}
-rescue_interaction = read_tsv("data/nativeRescue_interaction_test.txt")
-
-ko_up_71 = dea %>% 
-  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
-  pull(Gene)
-
-wt_up_738 = dea %>% 
-  filter(condition == "WT", sig == "up") %>% 
-  pull(Gene)
-
-union_741 = unique(c(
-  ko_up_71,
-  wt_up_738
-))
-
-df = rescue_interaction %>%
-  filter(Gene %in% union_741)
-
-summary(df$log2diff)
-
-1 * 0.35 * 2^1.0774
-
-# = 0.74% induction back.
 
 cleanup_objects()
 ```
@@ -682,36 +665,40 @@ wt_rescue_interaction = read_tsv("data/wt_vs_rescued_interaction_test.txt")
 
 # establish gene pool
 
-ko_up_71 = dea %>%
-  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>%
-  pull(Gene)
+# ko_up_71 = dea %>%
+#   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>%
+#   pull(Gene)
 
 wt_up_738 = dea %>% 
   filter(condition == "WT", sig == "up") %>% 
   pull(Gene)
 
-rescue_up_540 = dea %>% 
-  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
-  pull(Gene)
+# rescue_up_540 = dea %>% 
+#   filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+#   pull(Gene)
 
-union_857 = unique(c(
-  ko_up_71,
-  wt_up_738,
-  rescue_up_540
-))
+# union_857 = unique(c(
+#   ko_up_71,
+#   wt_up_738,
+#   rescue_up_540
+# ))
 
-df = as.data.frame(union_857, nm = "Gene") %>%
+df = as.data.frame(wt_up_738, nm = "Gene") %>%
   left_join(
     wt_rescue_interaction %>% 
       select(Gene, log2diff, FDR)
     )
 
 hist(df$log2diff, breaks = 100)
+summary(df$log2diff)
+
 hist(df$FDR, breaks = 100)
+summary(df$FDR)
 
 df %>%
   mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
-  count(sig)
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
 
 df %>%
   mutate(
@@ -721,49 +708,11 @@ df %>%
       log2diff >= 0  ~ "+ve log2diff"
     )
   ) %>%
-  count(direction)
-
-summary(df$log2diff)
-summary(df$FDR)
-
-cleanup_objects()
-
-```
-
-Q4c side calculation: calculate mean % rescue using mean diff between WT and rescue (Q4C)
-
-```{r, fig.height=3, fig.width=4}
-wt_rescue_interaction = read_tsv("data/wt_vs_rescued_interaction_test.txt")
-
-ko_up_71 = dea %>% 
-  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
-  pull(Gene)
-
-wt_up_738 = dea %>% 
-  filter(condition == "WT", sig == "up") %>% 
-  pull(Gene)
-
-union_741 = unique(c(
-  ko_up_71,
-  wt_up_738
-))
-
-df = wt_rescue_interaction %>%
-  filter(Gene %in% union_741)
-
-summary(df$log2diff)
-
-1 * 2^-0.50471
-
-# = 0.70% induction back.
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
 
 cleanup_objects()
 ```
-
-
-
-
-
 
 
 <!-- Q5: RE D175A TAK1 smRNA in the KO cells: a) How many DEGs are induced (≥2-fold, P ≤ 0.05) in the TAK1 KO + TAK1 smRNA? b) Compared to TAK1 KO, how many DEGs are significantly different (≥2/≤0.5 -fold, P ≤ 0.05)? Note: could be legit to do this vs KO+lipid? -->
