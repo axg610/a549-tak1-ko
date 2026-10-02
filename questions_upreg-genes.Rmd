@@ -373,7 +373,7 @@ cleanup_objects()
 
 
 
-RN, Q3: RE KO+lipid – Does the lipid change anything? So: How many DEGs are also induced (≥2-fold, P ≤ 0.05) in the KO+lipid? How many are significantly different (≥2/≤0.5 -fold, P ≤ 0.05) from KO? Ideally there are similar numbers to the KO and that very few DEGs change.
+Q3a: RE KO+lipid – Does the lipid change anything? So: How many DEGs are also induced (≥2-fold, P ≤ 0.05) in the KO+lipid? How many are significantly different (≥2/≤0.5 -fold, P ≤ 0.05) from KO? Ideally there are similar numbers to the KO and that very few DEGs change.
 
 ```{r}
 ko_up_71 = dea %>% 
@@ -492,6 +492,46 @@ cleanup_objects()
 
 ```
 
+Q3b: In how many genes is the KO IL1B response affected by lipid (P<=0.05)?
+
+```{r fig.height=3, fig.width=4}
+lipid_interaction = read_tsv("data/KOlipid_interaction_test.txt")
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+df = as.data.frame(wt_up_738, nm = "Gene") %>%
+  left_join(
+    lipid_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+summary(df$log2diff)
+
+
+hist(df$FDR, breaks = 100)
+summary(df$FDR)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
+
+cleanup_objects()
+```
 
 
 
@@ -715,102 +755,6 @@ cleanup_objects()
 ```
 
 
-<!-- Q5: RE D175A TAK1 smRNA in the KO cells: a) How many DEGs are induced (≥2-fold, P ≤ 0.05) in the TAK1 KO + TAK1 smRNA? b) Compared to TAK1 KO, how many DEGs are significantly different (≥2/≤0.5 -fold, P ≤ 0.05)? Note: could be legit to do this vs KO+lipid? -->
-
-<!-- ```{r} -->
-<!-- ko_up_71 = dea %>%  -->
-<!--   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>%  -->
-<!--   pull(Gene) -->
-
-<!-- mutant_up_139 = dea %>%  -->
-<!--   filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "up") %>%  -->
-<!--   pull(Gene) -->
-
-<!-- genelists = list( -->
-<!--   ko_up_71 = ko_up_71, -->
-<!--   mutant_up_139 = mutant_up_139 -->
-<!-- ) -->
-
-<!-- plot_gene_sets( -->
-<!--   genelists, -->
-<!--   mat, -->
-<!--   mat_cols = c(9:12, 21:24) -->
-<!-- ) -->
-
-<!-- intersect(ko_up_71, mutant_up_139) %>% paste(collapse = ", ") -->
-
-<!-- cleanup_objects() -->
-<!-- ``` -->
-
-<!-- ```{r fig.height=7, fig.width=7} -->
-<!-- wt_up_738 = dea %>%  -->
-<!--   filter(condition == "WT", sig == "up") %>%  -->
-<!--   pull(Gene) -->
-
-<!-- mutant_up_139 = dea %>%  -->
-<!--   filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "up") %>%  -->
-<!--   pull(Gene) -->
-
-<!-- genelists = list( -->
-<!--   wt_up_738 = wt_up_738, -->
-<!--   mutant_up_139 = mutant_up_139 -->
-<!-- ) -->
-
-<!-- plot_gene_sets( -->
-<!--   genelists, -->
-<!--   mat, -->
-<!--   mat_cols = c(1:4, 21:24) -->
-<!-- ) -->
-
-
-<!-- cor = tpm %>%  -->
-<!--   filter(group %in% c("WT_naive", "TAK1KO_mTAK1-smRNA")) %>% -->
-<!--   filter(Gene %in% unique(c(wt_up_738, mutant_up_139))) %>% -->
-<!--   select(Gene, group, log2fold) %>% -->
-<!--   group_by(Gene, group) %>% -->
-<!--   summarize(log2fold = mean(log2fold), .groups = "drop") %>% -->
-<!--   pivot_wider(names_from = "group", values_from = "log2fold") -->
-
-<!-- cor.test(cor$`TAK1KO_mTAK1-smRNA`, cor$WT_naive, method = "pearson") -->
-
-<!-- ggplot( -->
-<!--   cor, -->
-<!--   aes(x = WT_naive, y = `TAK1KO_mTAK1-smRNA`) -->
-<!-- ) + -->
-<!--   geom_point() + -->
-<!--   geom_smooth(method = "lm") + -->
-<!--   theme(aspect.ratio = 1) -->
-
-<!-- # cleanup_objects() -->
-<!-- ``` -->
-
-<!-- ```{r a confident rescue list} -->
-<!-- wt_up_738 = dea %>%  -->
-<!--   filter(condition == "WT", sig == "up") %>%  -->
-<!--   pull(Gene) -->
-
-<!-- ko_up_71 = dea %>%  -->
-<!--   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>%  -->
-<!--   pull(Gene) -->
-
-<!-- rescue_up_540 = dea %>%  -->
-<!--   filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>%  -->
-<!--   pull(Gene) -->
-
-<!-- mutant_up_139 = dea %>%  -->
-<!--   filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "up") %>%  -->
-<!--   pull(Gene) -->
-
-
-<!-- confident_rescue = setdiff( -->
-<!--   intersect(wt_up_738, rescue_up_540), -->
-<!--   # union(ko_up_71, mutant_up_139) -->
-<!--   # ko_up_71 -->
-<!--   mutant_up_139 -->
-<!-- ) -->
-
-<!-- paste0(confident_rescue, collapse = ", ") -->
-<!-- ``` -->
 
 
 

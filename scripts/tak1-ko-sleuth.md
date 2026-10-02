@@ -294,7 +294,6 @@ write_tsv(results_q1b, "sleuth/sham_IL1B_interaction_test.txt")
 ```
 
 
-
 ### Q2B: effect of knockout on WT IL1B response?
 
 ```r
@@ -337,6 +336,51 @@ results_q2b = sleuth_results(so_q2b, test = "treatmentIL1B:conditionTAK1KO") %>%
 
 write_tsv(results_q2b, "sleuth/KO_IL1B_interaction_test.txt")
 ```
+
+### Q3B: effect of lipid on KO IL1B response?
+
+```r
+s2c_q3b = s2c %>%
+    filter(group %in% c("TAK1KO_naive", "TAK1KO_lipid"))
+
+so_q3b = sleuth_prep(
+    sample_to_covariates = s2c_q3b,
+    target_mapping = t2g,
+    gene_mode = TRUE,
+    aggregation_column = "Gene",
+    filter = new_filter,
+    num_cores = 4
+)
+
+so_q3b = sleuth_fit(
+    so_q3b,
+    ~treatment*rescue
+)
+
+so_q3b = sleuth_wt(
+    so_q3b,
+    "treatmentIL1B:rescuelipid"
+)
+
+results_q3b = sleuth_results(so_q3b, test = "treatmentIL1B:rescuelipid") %>%
+    as_tibble() %>%
+    mutate(
+        contrast = "treatmentIL1B:rescuelipid"
+    ) %>%
+    mutate(b = b/log(2)) %>%
+    select(Gene = target_id, contrast, log2diff = b, FDR = qval) %>%
+    filter(grepl("^[A-Za-z0-9]+$", Gene)) %>%
+    mutate(
+        log2diff = if_else(is.na(log2diff), 0, log2diff),
+        FDR = if_else(is.na(FDR), 1, FDR)
+        ) %>%
+    arrange(Gene)
+
+write_tsv(results_q3b, "sleuth/KOlipid_interaction_test.txt")
+```
+
+
+
 
 ### Q4B: effect of introducing native TAK1 smRNA to TAK1KO?
 
