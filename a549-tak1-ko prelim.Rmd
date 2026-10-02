@@ -80,7 +80,8 @@ source("scripts/helpers.R")
 # saveRDS(hm, "data/a549-tak1-ko-prelim-heatmap.rds")
 ```
 
-```{r heatmap of all il1b upreg genes}
+
+```{r heatmap of 936 il1b upreg genes, fig.height=7, fig.width=5}
 goi_up = dea %>%
   filter(
     FDR <= 0.05,
@@ -89,10 +90,112 @@ goi_up = dea %>%
   pull(Gene) %>%
   unique()
 
+up_mat = mat[goi_up, ]
+
+colsplits = factor(
+  c(
+    rep("WT", 4),
+    rep("sham", 4),
+    rep("TAK1KO", 4),
+    rep("KO + lipid", 4),
+    rep("rescue", 4),
+    rep("mutant rescue", 4)
+  ),
+  levels = c(
+    "WT",
+    "sham",
+    "TAK1KO",
+    "KO + lipid",
+    "rescue",
+    "mutant rescue"
+  )
+)
+
+# ===== original (robust colorscale, 98% quantile clipping) =====
+
+colors = generic_l2f_heatmap_colors(
+  up_mat
+)
+
+Heatmap(
+  up_mat,
+  col = colors,
+  name = "log2fold",
+  column_split = colsplits,
+  cluster_columns = F,
+  show_row_names = F,
+  show_column_names = F,
+  column_title_rot = 45,
+  show_row_dend = F,
+  use_raster = T
+)
+
+
+# ===== symmetric colorscale, no clipping =====
+
+colors = generic_l2f_heatmap_colors(
+  up_mat,
+  scaleType = "symmetric",
+  clipFactor = 1
+)
+
+Heatmap(
+  up_mat,
+  col = colors,
+  name = "log2fold",
+  column_split = colsplits,
+  cluster_columns = F,
+  show_row_names = F,
+  show_column_names = F,
+  column_title_rot = 45,
+  show_row_dend = F,
+  use_raster = T
+)
+
+# ===== symmetric colorscale, 99.5% clipping =====
+
+colors = generic_l2f_heatmap_colors(
+  up_mat,
+  scaleType = "symmetric",
+  clipFactor = 0.995
+)
+
+Heatmap(
+  up_mat,
+  col = colors,
+  name = "log2fold",
+  column_split = colsplits,
+  cluster_columns = F,
+  show_row_names = F,
+  show_column_names = F,
+  column_title_rot = 45,
+  show_row_dend = F,
+  use_raster = T
+)
+
+# ===== symmetric colorscale, 98% clipping =====
+
+colors = generic_l2f_heatmap_colors(
+  up_mat,
+  scaleType = "symmetric",
+  clipFactor = 0.98
+)
+
+Heatmap(
+  up_mat,
+  col = colors,
+  name = "log2fold",
+  column_split = colsplits,
+  cluster_columns = F,
+  show_row_names = F,
+  show_column_names = F,
+  column_title_rot = 45,
+  show_row_dend = F,
+  use_raster = T
+)
+
+cleanup_objects()
 ```
-
-
-
 
 
 
