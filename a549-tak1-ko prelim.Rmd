@@ -4,30 +4,83 @@ library(pheatmap)
 library(tidyverse)
 library(ggrepel)
 library(eulerr)
+```
+
+```{r data and helpers}
+source("scripts/main-data.R")
 source("scripts/helpers.R")
-knitr::opts_chunk$set(dpi = 600)
 ```
 
-```{r read data}
-tpm = read_tsv("data/a549-tak1-ko-tpm.txt")
 
-dea = read_tsv("data/a549-tak1-ko-dea.txt") %>%
-  mutate(sig = case_when(
-    log2fold >= 1 & FDR <= 0.05 ~ "up",
-    log2fold <=-1 & FDR <= 0.05 ~ "dn",
-    TRUE ~ "ns"
-  ))
+
+```{r heatmap for gene explorer, fig.height=7, fig.width=5}
+# goi = dea %>%
+#   filter(
+#     FDR <= 0.05,
+#     abs(log2fold) >= 1
+#   ) %>%
+#   pull(Gene) %>%
+#   unique()
+# 
+# mat = tpm %>%
+#   filter(Gene %in% goi) %>%
+#   filter(treatment == "IL1B") %>%
+#   mutate(sample = paste0(group, " ", rep)) %>%
+#   select(Gene, sample, log2fold) %>%
+#   pivot_wider(values_from = "log2fold", names_from = "sample") %>%
+#   select(
+#     Gene,
+#     contains("wT_naive"),
+#     contains("sham_naive"),
+#     contains("TAK1KO_naive"),
+#     contains("TAK1KO_lipid"),
+#     contains("_TAK1-smRNA"),
+#     contains("_mTAK1-smRNA")
+#   ) %>%
+#   column_to_rownames("Gene") %>%
+#   as.matrix()
+# 
+# colsplits = factor(
+#   c(
+#     rep("WT", 4),
+#     rep("sham", 4),
+#     rep("TAK1KO", 4),
+#     rep("KO + lipid", 4),
+#     rep("rescue", 4),
+#     rep("mutant rescue", 4)
+#   ),
+#   levels = c(
+#     "WT",
+#     "sham",
+#     "TAK1KO",
+#     "KO + lipid",
+#     "rescue",
+#     "mutant rescue"
+#   )
+# )
+# 
+# colors = generic_l2f_heatmap_colors(mat)
+# 
+# hm = Heatmap(
+#   mat,
+#   col = colors,
+#   name = "log2fold",
+#   column_split = colsplits,
+#   cluster_columns = F,
+#   show_row_names = F,
+#   show_column_names = F,
+#   column_title_rot = 45,
+#   show_row_dend = F,
+#   border = "black",
+#   use_raster = T
+# )
+# 
+# draw(hm)
+# 
+# saveRDS(hm, "data/a549-tak1-ko-prelim-heatmap.rds")
 ```
 
-```{r goi}
-goi = dea %>%
-  filter(
-    FDR <= 0.05,
-    abs(log2fold) >= 1
-  ) %>%
-  pull(Gene) %>%
-  unique()
-
+```{r heatmap of all il1b upreg genes}
 goi_up = dea %>%
   filter(
     FDR <= 0.05,
@@ -35,66 +88,247 @@ goi_up = dea %>%
   ) %>%
   pull(Gene) %>%
   unique()
+
 ```
 
-```{r il1b-reg genes heatmap, fig.height=7, fig.width=5}
-mat = tpm %>%
-  filter(Gene %in% goi) %>%
-  filter(treatment == "IL1B") %>%
-  mutate(sample = paste0(group, " ", rep)) %>%
-  select(Gene, sample, log2fold) %>%
-  pivot_wider(values_from = "log2fold", names_from = "sample") %>%
-  select(
-    Gene,
-    contains("wT_naive"),
-    contains("sham_naive"),
-    contains("TAK1KO_naive"),
-    contains("TAK1KO_lipid"),
-    contains("_TAK1-smRNA"),
-    contains("_mTAK1-smRNA")
-  ) %>%
+
+
+
+
+
+```{r pca on tpms}
+# build matrix
+mat <- tpm %>%
+  filter(Gene %in% goi, treatment %in% c("NS", "IL1B")) %>%
+  mutate(sample = paste0(condition, "_", rescue, "_", treatment, "_", rep)) %>%
+  select(Gene, sample, log2tpm) %>%
+  pivot_wider(names_from = sample, values_from = log2tpm) %>%
   column_to_rownames("Gene") %>%
   as.matrix()
 
-colsplits = factor(
-  c(
-    rep("WT", 4),
-    rep("sham", 4),
-    rep("TAK1KO", 4),
-    rep("KO + lipid", 4),
-    rep("rescue", 4),
-    rep("mutant rescue", 4)
+# PCA
+pca <- prcomp(t(mat), center = TRUE, scale. = FALSE)
+
+# PCA values dataframe
+pc_df <- as.data.frame(pca$x) %>%
+  rownames_to_column("sample") %>%
+  separate(
+    sample, 
+    into = c("condition","rescue","treatment", "rep"), 
+    sep = "_",
+    remove = F
+  ) %>%
+  mutate(sample2 = paste0(condition, "_", rescue, "_", rep)) %>%
+  mutate(
+    treatment = factor(treatment, levels = c("NS", "IL1B")),
+    condition = factor(condition, levels = c("WT", "sham", "TAK1KO"))
+  ) %>%
+  mutate(
+    id = case_when(
+      str_detect(sample, "WT_naive") ~ "wt",
+      str_detect(sample, "sham_naive") ~ "sham",
+      str_detect(sample, "TAK1KO_naive") ~ "KO",
+      str_detect(sample, "TAK1KO_lipid") ~ "lipid",
+      str_detect(sample, "TAK1KO_TAK1-smRNA") ~ "nat",
+      str_detect(sample, "TAK1KO_mTAK1-smRNA") ~ "D175A" 
+    ),
+    id = factor(id, levels = unique(id)),
+    .before = 1
+  )
+
+# across-replicate centroids
+pc_centroids <- pc_df %>%
+  group_by(condition, rescue, treatment) %>%
+  summarise(across(starts_with("PC"), mean), .groups = "drop")
+
+# per-replicate distances from NS
+pc_distance <- pc_df %>%
+  select(condition, rescue, treatment, rep, PC1, PC2) %>%
+  left_join(
+    pc_df %>%
+      filter(treatment == "NS") %>%
+      select(condition, rescue, rep, PC1, PC2) %>%
+      rename(PC1_NS = PC1, PC2_NS = PC2),
+    by = c("condition", "rescue", "rep")
+  ) %>%
+  filter(treatment != "NS") %>%
+  mutate(
+    dist = sqrt(
+      (PC1 - PC1_NS)^2 + (PC2 - PC2_NS)^2
+    )
+  ) %>%
+  select(condition, rescue, treatment, rep, dist) %>%
+  mutate(
+    group = paste0(condition, "_", rescue),
+    group = factor(group, levels = unique(group))
+  )
+
+# per-replicate distance, Tukey's HSD
+tukey = pc_distance %>%
+  select(group, dist) %>%
+  aov(dist ~ group, data = .) %>%
+  TukeyHSD() %>%
+  .$group %>%
+  as.data.frame() %>%
+  rownames_to_column("comparison") %>%
+  select(comparison, pval = `p adj`) %>%
+  mutate(
+  sig = case_when(
+    pval <= 0.001  ~ "***",
+    pval <= 0.01   ~ "**",
+    pval <= 0.05   ~ "*",
+    TRUE           ~ "ns"
+  )
+)
+```
+
+```{r pca plot, fig.height=2.5, fig.width=6, dpi=600}
+# raw tpm pca
+
+# ggplot(
+#   pc_df, 
+#   aes(
+#     x = PC1, 
+#     y = PC2
+#     )
+#   ) +
+#   geom_point(
+#     aes(
+#       color = treatment, 
+#       shape = condition
+#       )
+#     ) +
+#   geom_text_repel(
+#     aes(
+#       label = rescue, 
+#       color = treatment
+#       ),
+#     size = 3,
+#     max.overlaps = 10
+#     ) +
+#   scale_shape_manual(values = c(21, 5, 4)) +
+#   theme(
+#     aspect.ratio = 1
+#   )
+
+ggplot(
+  pc_df,
+  aes(
+    x = PC1,
+    y = PC2
+  )
+) +
+  geom_point(
+    aes(
+      color = treatment,
+      shape = id
+    )
+  ) +
+  scale_shape_manual(values = c(16, 17, 0, 3, 15, 7)) +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1,
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "black", fill = NA),
+    axis.line = element_line(color = "black"),
+    axis.ticks = element_line(color = "black"),
+    text = element_text(size = 12, color = "black"),
+    legend.text = element_text(color = "black"),
+    legend.title = element_text(color = "black")
+  ) +
+  labs(
+    color = "treatment",
+    shape = "condition"
+  )
+```
+
+```{r pca distance plot, fig.height=3, fig.width=4, dpi=600}
+# distances
+ggplot(
+  pc_distance,
+  aes(
+    x = group,
+    y = dist
+  )
+) +
+  stat_summary(
+    geom = "col",
+    fun = "mean",
+    color = "black",
+    lwd = 0.5,
+    width = 0.5
+  ) +
+  stat_summary(
+    geom = "errorbar",
+    fun.data = "mean_sdl",
+    fun.args = list(mult = 1),
+    width = 0.3,
+    lwd = 0.5
+  ) +
+  geom_jitter(
+    shape = 21,
+    fill = "white",
+    color = "black",
+    width = 0.1,
+    size = 2,
+    stroke = 1
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.13))) +
+  
+  # labs(x = NULL, y = "PC1/2 distance from NS") +
+  
+  theme(
+    panel.grid = element_blank(),
+    panel.border = element_rect(
+      color = "black",
+      fill = NA,
+      linewidth = 0.5
+    ),
+    panel.background = element_rect(fill = NA),
+    axis.ticks.length = unit(-0.2, "cm"),
+    axis.ticks = element_line(color = "black", linewidth = 0.5),
+    axis.text.x = element_blank(),
+    aspect.ratio = 0.25
+    )
+```
+
+```{r wt vs rescues venn, fig.height=4, fig.width=4}
+df = tibble(
+  group = c(
+    "wt",
+    "nat"
+    # "D175A"
   ),
-  levels = c(
-    "WT",
-    "sham",
-    "TAK1KO",
-    "KO + lipid",
-    "rescue",
-    "mutant rescue"
+  Gene = list(
+    dea %>% filter(group == "WT_naive", sig != "ns") %>% pull(Gene),
+    dea %>% filter(group == "TAK1KO_TAK1-smRNA", sig != "ns") %>% pull(Gene)
+    # dea %>% filter(group == "TAK1KO_mTAK1-smRNA", sig != "ns") %>% pull(Gene)
+    
+    # dea %>% filter(group == "WT_naive", FDR <= 0.05) %>% pull(Gene),
+    # dea %>% filter(group == "TAK1KO_TAK1-smRNA", FDR <= 0.05) %>% pull(Gene),
+    # dea %>% filter(group == "TAK1KO_mTAK1-smRNA", FDR <= 0.05) %>% pull(Gene)
   )
 )
 
-colors = generic_l2f_heatmap_colors(mat)
+mat = df %>% 
+  unnest(Gene) %>%
+  mutate(value = 1) %>%
+  pivot_wider(names_from = "group", values_from = "value") %>%
+  mutate(across(c(wt, wt), ~ replace_na(.x, 0)))
 
-hm = Heatmap(
+plot_euler(
   mat,
-  col = colors,
-  name = "log2fold",
-  column_split = colsplits,
-  cluster_columns = F,
-  show_row_names = F,
-  show_column_names = F,
-  column_title_rot = 45,
-  show_row_dend = F,
-  border = "black",
-  use_raster = T
-)
-
-draw(hm)
-
-saveRDS(hm, "data/a549-tak1-ko-prelim-heatmap.rds")
+  plotType = "euler",
+  quants = c("counts", "percent"),
+  plotTitle = NULL
+  )
 ```
+
+
+
+
+
+
 
 ```{r nested heatmap for grant}
 
@@ -380,233 +614,4 @@ ggsave("zoom pie.png", p_zoom, w = 4, h = 4, dpi = 600)
 
 
 
-
-
-```{r pca on tpms}
-# build matrix
-mat <- tpm %>%
-  filter(Gene %in% goi, treatment %in% c("NS", "IL1B")) %>%
-  mutate(sample = paste0(condition, "_", rescue, "_", treatment, "_", rep)) %>%
-  select(Gene, sample, log2tpm) %>%
-  pivot_wider(names_from = sample, values_from = log2tpm) %>%
-  column_to_rownames("Gene") %>%
-  as.matrix()
-
-# PCA
-pca <- prcomp(t(mat), center = TRUE, scale. = FALSE)
-
-# PCA values dataframe
-pc_df <- as.data.frame(pca$x) %>%
-  rownames_to_column("sample") %>%
-  separate(
-    sample, 
-    into = c("condition","rescue","treatment", "rep"), 
-    sep = "_",
-    remove = F
-  ) %>%
-  mutate(sample2 = paste0(condition, "_", rescue, "_", rep)) %>%
-  mutate(
-    treatment = factor(treatment, levels = c("NS", "IL1B")),
-    condition = factor(condition, levels = c("WT", "sham", "TAK1KO"))
-  ) %>%
-  mutate(
-    id = case_when(
-      str_detect(sample, "WT_naive") ~ "wt",
-      str_detect(sample, "sham_naive") ~ "sham",
-      str_detect(sample, "TAK1KO_naive") ~ "KO",
-      str_detect(sample, "TAK1KO_lipid") ~ "lipid",
-      str_detect(sample, "TAK1KO_TAK1-smRNA") ~ "nat",
-      str_detect(sample, "TAK1KO_mTAK1-smRNA") ~ "D175A" 
-    ),
-    id = factor(id, levels = unique(id)),
-    .before = 1
-  )
-
-# across-replicate centroids
-pc_centroids <- pc_df %>%
-  group_by(condition, rescue, treatment) %>%
-  summarise(across(starts_with("PC"), mean), .groups = "drop")
-
-# per-replicate distances from NS
-pc_distance <- pc_df %>%
-  select(condition, rescue, treatment, rep, PC1, PC2) %>%
-  left_join(
-    pc_df %>%
-      filter(treatment == "NS") %>%
-      select(condition, rescue, rep, PC1, PC2) %>%
-      rename(PC1_NS = PC1, PC2_NS = PC2),
-    by = c("condition", "rescue", "rep")
-  ) %>%
-  filter(treatment != "NS") %>%
-  mutate(
-    dist = sqrt(
-      (PC1 - PC1_NS)^2 + (PC2 - PC2_NS)^2
-    )
-  ) %>%
-  select(condition, rescue, treatment, rep, dist) %>%
-  mutate(
-    group = paste0(condition, "_", rescue),
-    group = factor(group, levels = unique(group))
-  )
-
-# per-replicate distance, Tukey's HSD
-tukey = pc_distance %>%
-  select(group, dist) %>%
-  aov(dist ~ group, data = .) %>%
-  TukeyHSD() %>%
-  .$group %>%
-  as.data.frame() %>%
-  rownames_to_column("comparison") %>%
-  select(comparison, pval = `p adj`) %>%
-  mutate(
-  sig = case_when(
-    pval <= 0.001  ~ "***",
-    pval <= 0.01   ~ "**",
-    pval <= 0.05   ~ "*",
-    TRUE           ~ "ns"
-  )
-)
-```
-
-```{r pca plot, fig.height=2.5, fig.width=6, dpi=600}
-# raw tpm pca
-
-# ggplot(
-#   pc_df, 
-#   aes(
-#     x = PC1, 
-#     y = PC2
-#     )
-#   ) +
-#   geom_point(
-#     aes(
-#       color = treatment, 
-#       shape = condition
-#       )
-#     ) +
-#   geom_text_repel(
-#     aes(
-#       label = rescue, 
-#       color = treatment
-#       ),
-#     size = 3,
-#     max.overlaps = 10
-#     ) +
-#   scale_shape_manual(values = c(21, 5, 4)) +
-#   theme(
-#     aspect.ratio = 1
-#   )
-
-ggplot(
-  pc_df,
-  aes(
-    x = PC1,
-    y = PC2
-  )
-) +
-  geom_point(
-    aes(
-      color = treatment,
-      shape = id
-    )
-  ) +
-  scale_shape_manual(values = c(16, 17, 0, 3, 15, 7)) +
-  theme_bw() +
-  theme(
-    aspect.ratio = 1,
-    panel.grid.minor = element_blank(),
-    panel.border = element_rect(color = "black", fill = NA),
-    axis.line = element_line(color = "black"),
-    axis.ticks = element_line(color = "black"),
-    text = element_text(size = 12, color = "black"),
-    legend.text = element_text(color = "black"),
-    legend.title = element_text(color = "black")
-  ) +
-  labs(
-    color = "treatment",
-    shape = "condition"
-  )
-```
-
-```{r pca distance plot, fig.height=3, fig.width=4, dpi=600}
-# distances
-ggplot(
-  pc_distance,
-  aes(
-    x = group,
-    y = dist
-  )
-) +
-  stat_summary(
-    geom = "col",
-    fun = "mean",
-    color = "black",
-    lwd = 0.5,
-    width = 0.5
-  ) +
-  stat_summary(
-    geom = "errorbar",
-    fun.data = "mean_sdl",
-    fun.args = list(mult = 1),
-    width = 0.3,
-    lwd = 0.5
-  ) +
-  geom_jitter(
-    shape = 21,
-    fill = "white",
-    color = "black",
-    width = 0.1,
-    size = 2,
-    stroke = 1
-  ) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.13))) +
-  
-  # labs(x = NULL, y = "PC1/2 distance from NS") +
-  
-  theme(
-    panel.grid = element_blank(),
-    panel.border = element_rect(
-      color = "black",
-      fill = NA,
-      linewidth = 0.5
-    ),
-    panel.background = element_rect(fill = NA),
-    axis.ticks.length = unit(-0.2, "cm"),
-    axis.ticks = element_line(color = "black", linewidth = 0.5),
-    axis.text.x = element_blank(),
-    aspect.ratio = 0.25
-    )
-```
-
-```{r wt vs rescues venn, fig.height=4, fig.width=4}
-df = tibble(
-  group = c(
-    "wt",
-    "nat"
-    # "D175A"
-  ),
-  Gene = list(
-    dea %>% filter(group == "WT_naive", sig != "ns") %>% pull(Gene),
-    dea %>% filter(group == "TAK1KO_TAK1-smRNA", sig != "ns") %>% pull(Gene)
-    # dea %>% filter(group == "TAK1KO_mTAK1-smRNA", sig != "ns") %>% pull(Gene)
-    
-    # dea %>% filter(group == "WT_naive", FDR <= 0.05) %>% pull(Gene),
-    # dea %>% filter(group == "TAK1KO_TAK1-smRNA", FDR <= 0.05) %>% pull(Gene),
-    # dea %>% filter(group == "TAK1KO_mTAK1-smRNA", FDR <= 0.05) %>% pull(Gene)
-  )
-)
-
-mat = df %>% 
-  unnest(Gene) %>%
-  mutate(value = 1) %>%
-  pivot_wider(names_from = "group", values_from = "value") %>%
-  mutate(across(c(wt, wt), ~ replace_na(.x, 0)))
-
-plot_euler(
-  mat,
-  plotType = "euler",
-  quants = c("counts", "percent"),
-  plotTitle = NULL
-  )
-```
 
