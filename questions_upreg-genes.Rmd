@@ -289,7 +289,7 @@ genelists = list(
 plot_gene_sets(
   genelists,
   mat,
-  mat_cols = 1:8
+  mat_cols = c(1:4, 9:12)
 )
 
 # ===== calculate correlations ======
@@ -323,7 +323,7 @@ cleanup_objects()
 
 Q2b: In how many genes is the IL1B response affected by TAK1KO (P<= 0.05)?
 
-```{r fig.height=3, fig.width=4}
+```{r fig.height=3, fig.width=5}
 tak1ko_il1b_interaction = read_tsv("data/KO_IL1B_interaction_test.txt")
 
 wt_up_738 = dea %>% 
@@ -361,6 +361,65 @@ df %>%
   mutate(percent = 100*n/sum(n))
 
 df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
+
+# ===== check stats for 31% genes that were not significantly changed =====
+
+ns_genes_stats = df %>% filter(FDR > 0.05)
+
+ns_genes_stats %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
+
+hist(ns_genes_stats$log2diff, breaks = 50)
+summary(ns_genes_stats$log2diff)
+
+Heatmap(
+  mat[ns_genes_stats$Gene, c(1:4, 9:12)],
+  col = generic_l2f_heatmap_colors(mat[ns_genes_stats$Gene, c(1:4, 9:12)])
+)
+
+# ===== check stats for 68 genes that remain upreg in KO =======
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+unaffected_68 = intersect(wt_up_738, ko_up_71)
+
+unaffected_68_stats = df %>% filter(Gene %in% unaffected_68)
+
+hist(unaffected_68_stats$log2diff, breaks = 10)
+summary(unaffected_68_stats$log2diff)
+
+unaffected_68_stats %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
+
+hist(unaffected_68_stats$FDR, breaks = 10)
+summary(unaffected_68_stats$FDR)
+
+unaffected_68_stats %>%
   mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
   count(sig) %>%
   mutate(percent = 100*n/sum(n))
