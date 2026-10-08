@@ -472,6 +472,96 @@ write_tsv(results_q4c, "sleuth/wt_vs_rescued_interaction_test.txt")
 ```
 
 
+### Q5B: effect of introducing mutant TAK1 smRNA to TAK1KO?
+
+```r
+
+s2c_q5b = s2c %>%
+    filter(group %in% c("TAK1KO_naive", "TAK1KO_mTAK1-smRNA")) %>%
+    mutate(
+        rescue = factor(rescue, levels = c("naive", "mTAK1-smRNA"))
+    )
+
+so_q5b = sleuth_prep(
+    sample_to_covariates = s2c_q5b,
+    target_mapping = t2g,
+    gene_mode = TRUE,
+    aggregation_column = "Gene",
+    filter = new_filter,
+    num_cores = 4
+)
+
+so_q5b = sleuth_fit(
+    so_q5b,
+    ~treatment*rescue
+)
+
+so_q5b = sleuth_wt(
+    so_q5b,
+    "treatmentIL1B:rescuemTAK1-smRNA"
+)
+
+results_q5b = sleuth_results(so_q5b, test = "treatmentIL1B:rescuemTAK1-smRNA") %>%
+    as_tibble() %>%
+    mutate(
+        contrast = "treatmentIL1B:rescuemTAK1-smRNA"
+    ) %>%
+    mutate(b = b/log(2)) %>%
+    select(Gene = target_id, contrast, log2diff = b, FDR = qval) %>%
+    filter(grepl("^[A-Za-z0-9]+$", Gene)) %>%
+    mutate(
+        log2diff = if_else(is.na(log2diff), 0, log2diff),
+        FDR = if_else(is.na(FDR), 1, FDR)
+        ) %>%
+    arrange(Gene)
+
+write_tsv(results_q5b, "sleuth/mutantRescue_interaction_test.txt")
+```
+
+
+
+### Q5C: compared WT and mutantRescued IL1B response?
+
+```r
+s2c_q5c = s2c %>%
+    filter(group %in% c("WT_naive", "TAK1KO_mTAK1-smRNA"))
+
+so_q5c = sleuth_prep(
+    sample_to_covariates = s2c_q5c,
+    target_mapping = t2g,
+    gene_mode = TRUE,
+    aggregation_column = "Gene",
+    filter = new_filter,
+    num_cores = 4
+)
+
+so_q5c = sleuth_fit(
+    so_q5c,
+    ~treatment*group
+)
+
+so_q5c = sleuth_wt(
+    so_q5c,
+    "treatmentIL1B:groupTAK1KO_mTAK1-smRNA"
+)
+
+results_q5c = sleuth_results(so_q5c, test = "treatmentIL1B:groupTAK1KO_mTAK1-smRNA") %>%
+    as_tibble() %>%
+    mutate(
+        contrast = "treatmentIL1B:groupTAK1KO_mTAK1-smRNA"
+    ) %>%
+    mutate(b = b/log(2)) %>%
+    select(Gene = target_id, contrast, log2diff = b, FDR = qval) %>%
+    filter(grepl("^[A-Za-z0-9]+$", Gene)) %>%
+    mutate(
+        log2diff = if_else(is.na(log2diff), 0, log2diff),
+        FDR = if_else(is.na(FDR), 1, FDR)
+        ) %>%
+    arrange(Gene)
+
+write_tsv(results_q5c, "sleuth/wt_vs_mutantRescued_interaction_test.txt")
+```
+
 # Tests to address questions regarding clonal process
 
 ### === prep sleuth inputs ===
