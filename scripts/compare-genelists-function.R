@@ -5,11 +5,15 @@ plot_gene_sets = function(
     genelists, 
     mat, 
     mat_cols = 1:24,
-    output = "plot",
+    output = c("plot", "codes"),
     plotType = "venn",
     heatmapTitle = NULL,
-    heatmapRowNames = FALSE
+    heatmapRowNames = FALSE,
+    show_venn = TRUE,
+    show_heatmap = TRUE
 ) {
+  
+  output = match.arg(output)
   
   # binary membership matrix
   df = tibble(
@@ -40,48 +44,50 @@ plot_gene_sets = function(
     pull(code)
   
   if(output == "plot"){
-    # make heatmaps
-    hms = lapply(code_list, function(cd) {
-      
-      genes = codes %>%
-        filter(code == cd) %>%
-        pull(Gene)
-      
-      title = names(genelists)[as.logical(as.integer(strsplit(cd, "")[[1]]))] %>%
-        paste(collapse = "\n∩\n")
-      
-      mat[genes, mat_cols, drop = FALSE] %>%
-        Heatmap(
-          .,
-          cluster_columns = F,
-          col = generic_l2f_heatmap_colors(.),
-          show_row_names = heatmapRowNames,
-          row_title = title,
-          row_title_rot = 0,
-          show_column_names = T,
-          column_title = heatmapTitle,
-          # column_split = colsplits,
-          # column_title_rot = 45,
-          column_names_rot = 45,
-          row_names_gp = gpar(cex = 0.5)
-        )
-    })
     
     # Euler/Venn plot
-    print(plot_euler(df, plotType = plotType, plotTitle = NULL))
+    if (show_venn){
+      print(plot_euler(df, plotType = plotType, plotTitle = NULL))
+    }
     
-    # stack heatmaps
-    print(Reduce(`%v%`, hms))
+    if (show_heatmap){
+      # make heatmaps
+      hms = lapply(code_list, function(cd) {
+        
+        genes = codes %>%
+          filter(code == cd) %>%
+          pull(Gene)
+        
+        title = names(genelists)[as.logical(as.integer(strsplit(cd, "")[[1]]))] %>%
+          paste(collapse = "\n∩\n")
+        
+        mat[genes, mat_cols, drop = FALSE] %>%
+          Heatmap(
+            .,
+            cluster_columns = F,
+            col = generic_l2f_heatmap_colors(.),
+            show_row_names = heatmapRowNames,
+            row_title = title,
+            row_title_rot = 0,
+            show_column_names = T,
+            column_title = heatmapTitle,
+            # column_split = colsplits,
+            # column_title_rot = 45,
+            column_names_rot = 45,
+            row_names_gp = gpar(cex = 0.5)
+          )
+      })
+      
+      # stack heatmaps
+      print(Reduce(`%v%`, hms))
+    }
+    
   }
   
   else if (output == "codes"){
     return(codes)
   }
   
-  else {
-    print("Invalid group type -- returning nothing")
-  }
-
 }
 
 
