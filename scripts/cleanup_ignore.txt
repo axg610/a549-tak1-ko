@@ -17,4 +17,5 @@ generic_l2f_heatmap_colors
 plot_gene_sets
 
 myColors
+myColsplits
 

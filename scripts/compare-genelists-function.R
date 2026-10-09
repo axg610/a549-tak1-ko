@@ -9,6 +9,7 @@ plot_gene_sets = function(
     plotType = "venn",
     heatmapTitle = NULL,
     heatmapRowNames = FALSE,
+    heatmapColsplits = NULL,
     show_venn = TRUE,
     show_heatmap = TRUE,
     colorScale = NULL
@@ -80,8 +81,8 @@ plot_gene_sets = function(
             row_title_rot = 0,
             show_column_names = T,
             column_title = heatmapTitle,
-            # column_split = colsplits,
-            # column_title_rot = 45,
+            column_split = heatmapColsplits,
+            column_title_rot = 45,
             column_names_rot = 45,
             row_names_gp = gpar(cex = 0.5)
           )
