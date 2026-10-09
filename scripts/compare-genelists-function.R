@@ -10,7 +10,8 @@ plot_gene_sets = function(
     heatmapTitle = NULL,
     heatmapRowNames = FALSE,
     show_venn = TRUE,
-    show_heatmap = TRUE
+    show_heatmap = TRUE,
+    colorScale = NULL
 ) {
   
   output = match.arg(output)
@@ -51,6 +52,8 @@ plot_gene_sets = function(
     }
     
     if (show_heatmap){
+      
+      
       # make heatmaps
       hms = lapply(code_list, function(cd) {
         
@@ -61,11 +64,17 @@ plot_gene_sets = function(
         title = names(genelists)[as.logical(as.integer(strsplit(cd, "")[[1]]))] %>%
           paste(collapse = "\n∩\n")
         
-        mat[genes, mat_cols, drop = FALSE] %>%
+        mat = mat[genes, mat_cols, drop = FALSE]
+        
+        if(is.null(colorScale)){
+          colorScale = generic_l2f_heatmap_colors(mat)
+        }
+        
+        mat %>%
           Heatmap(
             .,
             cluster_columns = F,
-            col = generic_l2f_heatmap_colors(.),
+            col = colorScale,
             show_row_names = heatmapRowNames,
             row_title = title,
             row_title_rot = 0,
