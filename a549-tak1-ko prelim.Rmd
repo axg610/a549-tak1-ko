@@ -80,7 +80,6 @@ source("scripts/helpers.R")
 # saveRDS(hm, "data/a549-tak1-ko-prelim-heatmap.rds")
 ```
 
-
 ```{r heatmap of 936 il1b upreg genes, fig.height=7, fig.width=5}
 goi_up = dea %>%
   filter(
@@ -196,6 +195,53 @@ Heatmap(
 
 cleanup_objects()
 ```
+
+```{r volcano plots for each condition, fig.height=3, fig.width=7}
+df = dea %>%
+  mutate(group = factor(group, levels = unique(group)))
+
+ggplot(
+  df,
+  aes(x = log2fold, y = -log10(FDR))
+) +
+  facet_wrap(
+    ~group, 
+    nrow = 1,
+    labeller = labeller(
+      group = c(
+        "WT_naive" = "wt",
+        "sham_naive" = "sham",
+        "TAK1KO_naive" = "KO",
+        "TAK1KO_lipid" = "KO+lipid",
+        "TAK1KO_TAK1-smRNA" = "KO+nat",
+        "TAK1KO_mTAK1-smRNA" = "KO+D175A"
+      )
+    )
+    ) +
+  geom_point(
+    aes(fill = sig),
+    size = 0.8,
+    shape = 21,
+    color = "black",
+    stroke = 0.25
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", lwd = 0.25) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", lwd = 0.25) +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none",
+    panel.grid = element_blank(),
+    strip.background = element_blank()
+  ) +
+  scale_fill_manual(
+    values = c("up" = "firebrick1", "ns" = "grey", "dn" = "steelblue1")
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
+
+ggsave("volcano.png", h=3, w=7, dpi=600)
+```
+
 
 
 
