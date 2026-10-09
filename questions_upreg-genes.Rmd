@@ -21,7 +21,7 @@ source("scripts/main-data.R")
 source("scripts/compare-genelists-function.R")
 ```
 
-```{r a consistent color scale}
+```{r a consistent color scale and colsplits}
 goi_up = dea %>%
   filter(
     FDR <= 0.05,
@@ -36,6 +36,25 @@ myColors = generic_l2f_heatmap_colors(
   up_mat,
   scaleType = "symmetric",
   clipFactor = 0.995
+)
+
+myColsplits = factor(
+  c(
+    rep("WT", 4),
+    rep("sham", 4),
+    rep("TAK1KO", 4),
+    rep("KO + lipid", 4),
+    rep("rescue", 4),
+    rep("mutant rescue", 4)
+  ),
+  levels = c(
+    "WT",
+    "sham",
+    "TAK1KO",
+    "KO + lipid",
+    "rescue",
+    "mutant rescue"
+  )
 )
 
 cleanup_objects()
@@ -117,34 +136,64 @@ genelists = list(
 plot_gene_sets(
   genelists,
   mat,
-  mat_cols = 1:8,
-  colorScale = myColors
+  # mat_cols = 1:8,
+  colorScale = myColors,
+  heatmapColsplits = myColsplits,
+  plotType = "euler"
 )
 
-# ===== calculate correlations ======
+# ===== plot total correlations =====
 
-for(c in c("01", "11", "10")){
-  
-  goi = plot_gene_sets(
-    genelists,
-    mat,
-    output = "codes"
+df = dea %>%
+  filter(
+    Gene %in% unique(c(wt_up_738, sham_up_751)),
+    group %in% c("WT_naive", "sham_naive")
   ) %>%
-    filter(code == c) %>%
-    pull(Gene)
+  select(Gene, group, log2fold) %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+ggplot(df, aes(x = WT_naive, y = sham_naive)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_smooth(method = "lm") +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1
+  ) +
+  scale_x_continuous(limits = c(-1, 12)) +
+  scale_y_continuous(limits = c(-1, 12)) +
+  annotate(
+    x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
+    geom = "text",
+    label = paste0("Pearson = ", round(pearson, 2))
+  )
   
-  df = dea %>%
-    filter(group %in% c("WT_naive", "sham_naive"), Gene %in% goi) %>%
-    select(Gene, group, log2fold) %>%
-    pivot_wider(names_from = "group", values_from = "log2fold")
-  
-  cor = cor.test(df$WT_naive, df$sham_naive, method = "pearson")$estimate[[1]]
-  
-  print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
-  
-  rm(c, goi, df, cor)
-  
-}
+
+# # ===== calculate venn correlations ======
+# 
+# for(c in c("01", "11", "10")){
+#   
+#   goi = plot_gene_sets(
+#     genelists,
+#     mat,
+#     output = "codes"
+#   ) %>%
+#     filter(code == c) %>%
+#     pull(Gene)
+#   
+#   df = dea %>%
+#     filter(group %in% c("WT_naive", "sham_naive"), Gene %in% goi) %>%
+#     select(Gene, group, log2fold) %>%
+#     pivot_wider(names_from = "group", values_from = "log2fold")
+#   
+#   cor = cor.test(df$WT_naive, df$sham_naive, method = "pearson")$estimate[[1]]
+#   
+#   print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
+#   
+#   rm(c, goi, df, cor)
+#   
+# }
 
 
 cleanup_objects()
@@ -289,37 +338,67 @@ genelists = list(
 plot_gene_sets(
   genelists,
   mat,
-  mat_cols = c(1:4, 9:12)
+  # mat_cols = c(1:4, 9:12)
+  colorScale = myColors,
+  heatmapColsplits = myColsplits,
+  plotType = "euler"
 )
 
 # intersect(wt_up_738, ko_up_71) %>% paste(collapse = ", ")
 # 
 # setdiff(ko_up_71, wt_up_738)
 
-# ===== calculate correlations ======
+# ===== plot total correlations =====
 
-for(c in c("01", "11", "10")){
-  
-  goi = plot_gene_sets(
-    genelists,
-    mat,
-    output = "codes"
+df = dea %>%
+  filter(
+    Gene %in% unique(c(wt_up_738, ko_up_71)),
+    group %in% c("WT_naive", "TAK1KO_naive")
   ) %>%
-    filter(code == c) %>%
-    pull(Gene)
-  
-  df = dea %>%
-    filter(group %in% c("WT_naive", "TAK1KO_naive"), Gene %in% goi) %>%
-    select(Gene, group, log2fold) %>%
-    pivot_wider(names_from = "group", values_from = "log2fold")
-  
-  cor = cor.test(df$WT_naive, df$TAK1KO_naive, method = "pearson")$estimate[[1]]
-  
-  print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
-  
-  rm(c, goi, df, cor)
-  
-}
+  select(Gene, group, log2fold) %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+ggplot(df, aes(x = WT_naive, y = TAK1KO_naive)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_smooth(method = "lm") +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1
+  ) +
+  scale_x_continuous(limits = c(-1, 12)) +
+  scale_y_continuous(limits = c(-1, 12)) +
+  annotate(
+    x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
+    geom = "text",
+    label = paste0("Pearson = ", round(pearson, 2))
+  )
+
+# # ===== calculate correlations ======
+# 
+# for(c in c("01", "11", "10")){
+#   
+#   goi = plot_gene_sets(
+#     genelists,
+#     mat,
+#     output = "codes"
+#   ) %>%
+#     filter(code == c) %>%
+#     pull(Gene)
+#   
+#   df = dea %>%
+#     filter(group %in% c("WT_naive", "TAK1KO_naive"), Gene %in% goi) %>%
+#     select(Gene, group, log2fold) %>%
+#     pivot_wider(names_from = "group", values_from = "log2fold")
+#   
+#   cor = cor.test(df$WT_naive, df$TAK1KO_naive, method = "pearson")$estimate[[1]]
+#   
+#   print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
+#   
+#   rm(c, goi, df, cor)
+#   
+# }
 
 cleanup_objects()
 ```
@@ -675,9 +754,9 @@ cleanup_objects()
 Q4a: RE native TAK1 smRNA in the KO cells: a) How many DEGs are induced (≥2-fold, P ≤ 0.05) in the TAK1 KO + TAK1 smRNA? b) Compared to TAK1 KO, how many DEGs are significantly different (≥2/≤0.5 -fold, P ≤ 0.05)? Note: could be legit to do this vs KO+lipid?
 
 ```{r}
-ko_up_71 = dea %>% 
-  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
-  pull(Gene)
+# ko_up_71 = dea %>% 
+#   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+#   pull(Gene)
 
 wt_up_738 = dea %>% 
   filter(condition == "WT", sig == "up") %>% 
@@ -688,7 +767,7 @@ rescue_up_540 = dea %>%
   pull(Gene)
 
 genelists = list(
-  ko_up_71 = ko_up_71,
+  # ko_up_71 = ko_up_71,
   wt_up_738= wt_up_738,
   rescue_up_540 = rescue_up_540
 )
@@ -696,11 +775,40 @@ genelists = list(
 plot_gene_sets(
   genelists,
   mat,
-  mat_cols = c(1:4, 9:12, 17:20),
-  plotType = "euler"
+  # mat_cols = c(1:4, 9:12, 17:20),
+  plotType = "euler",
+  colorScale = myColors,
+  heatmapColsplits = myColsplits
 )
 
 # intersect(ko_up_71, rescue_up_540) %>% paste(collapse = ", ")
+
+# ===== plot total correlations =====
+
+df = dea %>%
+  filter(
+    Gene %in% unique(c(wt_up_738, rescue_up_540)),
+    group %in% c("WT_naive", "TAK1KO_TAK1-smRNA")
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+ggplot(df, aes(x = WT_naive, y = `TAK1KO_TAK1-smRNA`)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_smooth(method = "lm") +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1
+  ) +
+  scale_x_continuous(limits = c(-1, 12)) +
+  scale_y_continuous(limits = c(-1, 12)) +
+  annotate(
+    x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
+    geom = "text",
+    label = paste0("Pearson = ", round(pearson, 2))
+  )
 
 cleanup_objects()
 ```
@@ -912,7 +1020,66 @@ cleanup_objects()
 
 
 
+Q5a: How many genes significant in wt vs mutant rescue?
 
+```{r}
+# ko_up_71 = dea %>% 
+#   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+#   pull(Gene)
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+mutant_up_139 = dea %>%
+  filter(group == "TAK1KO_mTAK1-smRNA", sig == "up") %>%
+  pull(Gene)
+
+
+genelists = list(
+  # ko_up_71 = ko_up_71,
+  wt_up_738= wt_up_738,
+  mutant_up_139 = mutant_up_139
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  # mat_cols = c(1:4, 9:12, 17:20),
+  plotType = "euler",
+  colorScale = myColors,
+  heatmapColsplits = myColsplits
+)
+
+# ===== plot total correlations =====
+
+df = dea %>%
+  filter(
+    Gene %in% unique(c(wt_up_738, mutant_up_139)),
+    group %in% c("WT_naive", "TAK1KO_mTAK1-smRNA")
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+ggplot(df, aes(x = WT_naive, y = `TAK1KO_mTAK1-smRNA`)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_smooth(method = "lm") +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1
+  ) +
+  scale_x_continuous(limits = c(-1, 12)) +
+  scale_y_continuous(limits = c(-1, 12)) +
+  annotate(
+    x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
+    geom = "text",
+    label = paste0("Pearson = ", round(pearson, 2))
+  )
+
+cleanup_objects()
+```
 
 Q5b: effect of introducing native TAK1 smRNA to TAK1KO?
 
