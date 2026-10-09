@@ -21,7 +21,77 @@ source("scripts/main-data.R")
 source("scripts/compare-genelists-function.R")
 ```
 
+```{r a consistent color scale}
+goi_up = dea %>%
+  filter(
+    FDR <= 0.05,
+    log2fold >= 1
+  ) %>%
+  pull(Gene) %>%
+  unique()
+
+up_mat = mat[goi_up, ]
+
+myColors = generic_l2f_heatmap_colors(
+  up_mat,
+  scaleType = "symmetric",
+  clipFactor = 0.995
+)
+
+cleanup_objects()
+```
+
+
 738 DEGs upregulated by IL-1β (≥2-fold, P ≤ 0.05) 
+
+Check everything in relation to wt_738
+
+```{r fig.height=3, fig.width=4}
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+sham_up_751 = dea %>% 
+  filter(condition == "sham", sig == "up") %>% 
+  pull(Gene)
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+lipid_up_68 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "lipid", sig == "up") %>% 
+  pull(Gene)
+
+rescue_up_540 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+mutant_up_139 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+for (name in c(
+  "sham_up_751",
+  "ko_up_71",
+  "lipid_up_68",
+  "rescue_up_540",
+  "mutant_up_139"
+)) {
+  
+  plot_gene_sets(
+    list(
+      wt_up_738 = wt_up_738,
+      set = get(name)
+    ) %>% setNames(c("wt_up_738", name)),
+    show_heatmap = F
+  )
+}
+
+cleanup_objects()
+
+```
+
 
 
 
@@ -47,7 +117,8 @@ genelists = list(
 plot_gene_sets(
   genelists,
   mat,
-  mat_cols = 1:8
+  mat_cols = 1:8,
+  colorScale = myColors
 )
 
 # ===== calculate correlations ======
@@ -116,7 +187,8 @@ genelists = list(
 plot_gene_sets(
   genelists,
   mat,
-  mat_cols = 1:8
+  mat_cols = 1:8,
+  colorScale = myColors
 )
 
 # ===== calculate correlations ======
@@ -424,7 +496,7 @@ unaffected_68_stats %>%
   count(sig) %>%
   mutate(percent = 100*n/sum(n))
 
-cleanup_objects()
+# cleanup_objects()
 ```
 
 
@@ -714,9 +786,9 @@ wt_up_738 = dea %>%
   filter(condition == "WT", sig == "up") %>% 
   pull(Gene)
 
-# rescue_up_540 = dea %>% 
-#   filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
-#   pull(Gene)
+rescue_up_540 = dea %>%
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>%
+  pull(Gene)
 
 # union_857 = unique(c(
 #   ko_up_71,
@@ -752,6 +824,29 @@ df %>%
   mutate(percent = 100*n/sum(n))
 
 
+# ===== stats for gene that appear rescued? =====
+
+intersect_422 = intersect(wt_up_738, rescue_up_540)
+
+df %>%
+  filter(Gene %in% intersect_422) %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
+
+summary(df %>% filter(Gene %in% intersect_422) %>% pull(log2diff))
+
+df %>%
+  filter(Gene %in% intersect_422) %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
 
 cleanup_objects()
 ```
@@ -812,6 +907,130 @@ df %>%
 
 cleanup_objects()
 ```
+
+
+
+
+
+
+
+Q5b: effect of introducing native TAK1 smRNA to TAK1KO?
+
+```{r, fig.height=3, fig.width=4}
+rescue_interaction = read_tsv("data/mutantRescue_interaction_test.txt")
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+mutant_up_139 = dea %>%
+  filter(group == "TAK1KO_mTAK1-smRNA", sig == "up") %>%
+  pull(Gene)
+
+df = rescue_interaction %>%
+  filter(Gene %in% wt_up_738)
+
+hist(df$log2diff, breaks = 100)
+summary(df$log2diff)
+
+
+hist(df$FDR, breaks = 100)
+summary(df$FDR)
+
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
+
+# ===== stats for gene that appear rescued? =====
+
+intersect_135 = intersect(wt_up_738, mutant_up_139)
+
+df %>%
+  filter(Gene %in% intersect_135) %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
+
+summary(df %>% filter(Gene %in% intersect_135) %>% pull(log2diff))
+
+df %>%
+  filter(Gene %in% intersect_135) %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
+
+cleanup_objects()
+```
+
+
+Q5c: compare WT and rescued IL1B response?
+
+```{r, fig.height=3, fig.width=4}
+wt_rescue_interaction = read_tsv("data/wt_vs_mutantRescued_interaction_test.txt")
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+df = as.data.frame(wt_up_738, nm = "Gene") %>%
+  left_join(
+    wt_rescue_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+summary(df$log2diff)
+
+hist(df$FDR, breaks = 100)
+summary(df$FDR)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n))
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n))
+
+cleanup_objects()
+```
+
+
+
+
+
+
+
+
+
+
 
 
 
