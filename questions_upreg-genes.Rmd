@@ -3,6 +3,7 @@ library(ComplexHeatmap)
 library(pheatmap)
 library(eulerr)
 library(tidyverse)
+library(deming)
 source("scripts/helpers.R")
 
 knitr::opts_chunk$set(
@@ -21,7 +22,10 @@ source("scripts/main-data.R")
 source("scripts/compare-genelists-function.R")
 ```
 
-```{r a consistent color scale and colsplits}
+```{r themes}
+
+# a consistent color scale
+
 goi_up = dea %>%
   filter(
     FDR <= 0.05,
@@ -37,6 +41,8 @@ myColors = generic_l2f_heatmap_colors(
   scaleType = "symmetric",
   clipFactor = 0.995
 )
+
+# column splits 
 
 myColsplits = factor(
   c(
@@ -56,6 +62,20 @@ myColsplits = factor(
     "mutant rescue"
   )
 )
+
+# a prism-like ggplot2 theme
+
+theme_prismLike = theme_bw() +
+    theme(
+    aspect.ratio = 1,
+    panel.grid = element_blank(),
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    axis.ticks.length = unit(-0.15, "cm"),
+    axis.ticks.y.right = element_line(),
+    axis.ticks = element_line(color = "black", linewidth = 0.6),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.6)
+  )
 
 cleanup_objects()
 ```
@@ -117,7 +137,7 @@ cleanup_objects()
 
 Q1a: RE sham - How many DEGs are induced (≥2-fold, P ≤ 0.05) in the sham? How many are significantly different (≥2/≤0.5 -fold, P ≤ 0.05) from wt?
 
-```{r}
+```{r, fig.height=2, fig.width=3, dpi=600}
 # ===== with log2fold and p value criteria =====
 
 wt_up_738 = dea %>% 
@@ -144,57 +164,38 @@ plot_gene_sets(
 
 # ===== plot total correlations =====
 
-df = dea %>%
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
   filter(
     Gene %in% unique(c(wt_up_738, sham_up_751)),
     group %in% c("WT_naive", "sham_naive")
   ) %>%
   select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
   pivot_wider(names_from = "group", values_from = "log2fold")
 
 pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
 
+deming = deming(sham_naive~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
+  )
+
+
 ggplot(df, aes(x = WT_naive, y = sham_naive)) +
   geom_point(shape = 21, fill = "white") +
-  geom_smooth(method = "lm") +
-  theme_bw() +
-  theme(
-    aspect.ratio = 1
-  ) +
-  scale_x_continuous(limits = c(-1, 12)) +
-  scale_y_continuous(limits = c(-1, 12)) +
-  annotate(
-    x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
-    geom = "text",
-    label = paste0("Pearson = ", round(pearson, 2))
-  )
-  
-
-# # ===== calculate venn correlations ======
-# 
-# for(c in c("01", "11", "10")){
-#   
-#   goi = plot_gene_sets(
-#     genelists,
-#     mat,
-#     output = "codes"
-#   ) %>%
-#     filter(code == c) %>%
-#     pull(Gene)
-#   
-#   df = dea %>%
-#     filter(group %in% c("WT_naive", "sham_naive"), Gene %in% goi) %>%
-#     select(Gene, group, log2fold) %>%
-#     pivot_wider(names_from = "group", values_from = "log2fold")
-#   
-#   cor = cor.test(df$WT_naive, df$sham_naive, method = "pearson")$estimate[[1]]
-#   
-#   print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
-#   
-#   rm(c, goi, df, cor)
-#   
-# }
-
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  scale_y_continuous(limits = c(-1, 6)) +
+  scale_x_continuous(limits = c(-1, 6)) +
+  labs(caption = info)
 
 cleanup_objects()
 ```
@@ -321,7 +322,7 @@ cleanup_objects()
 
 Q2a: RE KO - How many DEGs are induced (≥2-fold, P ≤ 0.05) in the KO? How many are significantly different (≥2/≤0.5 -fold, P ≤ 0.05) from wt?
 
-```{r}
+```{r, fig.height=2, fig.width=3, dpi=600}
 wt_up_738 = dea %>% 
   filter(condition == "WT", sig == "up") %>% 
   pull(Gene)
@@ -344,61 +345,40 @@ plot_gene_sets(
   plotType = "euler"
 )
 
-# intersect(wt_up_738, ko_up_71) %>% paste(collapse = ", ")
-# 
-# setdiff(ko_up_71, wt_up_738)
-
 # ===== plot total correlations =====
 
-df = dea %>%
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
   filter(
     Gene %in% unique(c(wt_up_738, ko_up_71)),
     group %in% c("WT_naive", "TAK1KO_naive")
   ) %>%
   select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
   pivot_wider(names_from = "group", values_from = "log2fold")
 
 pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
 
-ggplot(df, aes(x = WT_naive, y = TAK1KO_naive)) +
-  geom_point(shape = 21, fill = "white") +
-  geom_smooth(method = "lm") +
-  theme_bw() +
-  theme(
-    aspect.ratio = 1
-  ) +
-  scale_x_continuous(limits = c(-1, 12)) +
-  scale_y_continuous(limits = c(-1, 12)) +
-  annotate(
-    x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
-    geom = "text",
-    label = paste0("Pearson = ", round(pearson, 2))
+deming = deming(TAK1KO_naive~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
   )
 
-# # ===== calculate correlations ======
-# 
-# for(c in c("01", "11", "10")){
-#   
-#   goi = plot_gene_sets(
-#     genelists,
-#     mat,
-#     output = "codes"
-#   ) %>%
-#     filter(code == c) %>%
-#     pull(Gene)
-#   
-#   df = dea %>%
-#     filter(group %in% c("WT_naive", "TAK1KO_naive"), Gene %in% goi) %>%
-#     select(Gene, group, log2fold) %>%
-#     pivot_wider(names_from = "group", values_from = "log2fold")
-#   
-#   cor = cor.test(df$WT_naive, df$TAK1KO_naive, method = "pearson")$estimate[[1]]
-#   
-#   print(paste0("code:", c, " pearson= ", cor, " (", length(goi), " genes)"))
-#   
-#   rm(c, goi, df, cor)
-#   
-# }
+
+ggplot(df, aes(x = WT_naive, y = TAK1KO_naive)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  labs(caption = info) +
+  scale_x_continuous(limits = c(-1, 6)) +
+  scale_y_continuous(limits = c(-1, 6))
 
 cleanup_objects()
 ```
@@ -753,7 +733,7 @@ cleanup_objects()
 
 Q4a: RE native TAK1 smRNA in the KO cells: a) How many DEGs are induced (≥2-fold, P ≤ 0.05) in the TAK1 KO + TAK1 smRNA? b) Compared to TAK1 KO, how many DEGs are significantly different (≥2/≤0.5 -fold, P ≤ 0.05)? Note: could be legit to do this vs KO+lipid?
 
-```{r}
+```{r, fig.height=2, fig.width=3, dpi=600}
 # ko_up_71 = dea %>% 
 #   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
 #   pull(Gene)
@@ -781,34 +761,40 @@ plot_gene_sets(
   heatmapColsplits = myColsplits
 )
 
-# intersect(ko_up_71, rescue_up_540) %>% paste(collapse = ", ")
-
 # ===== plot total correlations =====
 
-df = dea %>%
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
   filter(
     Gene %in% unique(c(wt_up_738, rescue_up_540)),
     group %in% c("WT_naive", "TAK1KO_TAK1-smRNA")
   ) %>%
   select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
   pivot_wider(names_from = "group", values_from = "log2fold")
 
 pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
 
+deming = deming(`TAK1KO_TAK1-smRNA`~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
+  )
+
+
 ggplot(df, aes(x = WT_naive, y = `TAK1KO_TAK1-smRNA`)) +
   geom_point(shape = 21, fill = "white") +
-  geom_smooth(method = "lm") +
-  theme_bw() +
-  theme(
-    aspect.ratio = 1
-  ) +
-  scale_x_continuous(limits = c(-1, 12)) +
-  scale_y_continuous(limits = c(-1, 12)) +
-  annotate(
-    x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
-    geom = "text",
-    label = paste0("Pearson = ", round(pearson, 2))
-  )
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  labs(caption = info) +
+  scale_y_continuous(limits = c(-0.5, 6)) +
+  scale_x_continuous(limits = c(-0.5, 6))
 
 cleanup_objects()
 ```
@@ -1022,7 +1008,7 @@ cleanup_objects()
 
 Q5a: How many genes significant in wt vs mutant rescue?
 
-```{r}
+```{r, fig.height=2, fig.width=3, dpi=600}
 # ko_up_71 = dea %>% 
 #   filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
 #   pull(Gene)
@@ -1053,30 +1039,38 @@ plot_gene_sets(
 
 # ===== plot total correlations =====
 
-df = dea %>%
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
   filter(
     Gene %in% unique(c(wt_up_738, mutant_up_139)),
     group %in% c("WT_naive", "TAK1KO_mTAK1-smRNA")
   ) %>%
   select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
   pivot_wider(names_from = "group", values_from = "log2fold")
 
 pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
 
+deming = deming(`TAK1KO_mTAK1-smRNA`~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
+  )
+
+
 ggplot(df, aes(x = WT_naive, y = `TAK1KO_mTAK1-smRNA`)) +
   geom_point(shape = 21, fill = "white") +
-  geom_smooth(method = "lm") +
-  theme_bw() +
-  theme(
-    aspect.ratio = 1
-  ) +
-  scale_x_continuous(limits = c(-1, 12)) +
-  scale_y_continuous(limits = c(-1, 12)) +
-  annotate(
-    x = -Inf, y = Inf, hjust = -0.1, vjust = 1.5,
-    geom = "text",
-    label = paste0("Pearson = ", round(pearson, 2))
-  )
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  labs(caption = info) +
+  scale_y_continuous(limits = c(-1, 6)) +
+  scale_x_continuous(limits = c(-1, 6))
 
 cleanup_objects()
 ```
@@ -1188,10 +1182,6 @@ df %>%
 
 cleanup_objects()
 ```
-
-
-
-
 
 
 
