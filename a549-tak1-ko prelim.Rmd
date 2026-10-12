@@ -9,8 +9,23 @@ library(eulerr)
 ```{r data and helpers}
 source("scripts/main-data.R")
 source("scripts/helpers.R")
-```
 
+
+
+# a prism-like ggplot2 theme
+
+theme_prismLike = theme_bw() +
+    theme(
+    aspect.ratio = 1,
+    panel.grid = element_blank(),
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    axis.ticks.length = unit(-0.15, "cm"),
+    axis.ticks.y.right = element_line(),
+    axis.ticks = element_line(color = "black", linewidth = 0.6),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.6)
+  )
+```
 
 
 ```{r heatmap for gene explorer, fig.height=7, fig.width=5}
@@ -196,17 +211,20 @@ Heatmap(
 cleanup_objects()
 ```
 
-```{r volcano plots for each condition, fig.height=3, fig.width=7}
+```{r volcano plots for each condition, fig.height=8, fig.width=3, dpi=600}
 df = dea %>%
-  mutate(group = factor(group, levels = unique(group)))
+  mutate(group = factor(group, levels = unique(group))) %>%
+  mutate(logFDR = -log10(FDR)) %>%
+  mutate(logFDR = if_else(is.infinite(logFDR), 325, logFDR))
 
 ggplot(
   df,
-  aes(x = log2fold, y = -log10(FDR))
+  aes(x = log2fold, y = logFDR)
 ) +
   facet_wrap(
     ~group, 
-    nrow = 1,
+    ncol = 1,
+    axes = "all",
     labeller = labeller(
       group = c(
         "WT_naive" = "wt",
@@ -227,19 +245,27 @@ ggplot(
   ) +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed", lwd = 0.25) +
   geom_vline(xintercept = c(-1, 1), linetype = "dashed", lwd = 0.25) +
-  theme_bw() +
+  theme_prismLike +
   theme(
-    aspect.ratio = 1,
-    legend.position = "none",
-    panel.grid = element_blank(),
-    strip.background = element_blank()
-  ) +
+    legend.position = "none"
+    ) +
   scale_fill_manual(
     values = c("up" = "firebrick1", "ns" = "grey", "dn" = "steelblue1")
   ) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
+  scale_y_continuous(
+    expand = expansion(mult = c(0.15, 0.15)),
+    limits = c(0, 350),
+    breaks = c(0, 100, 200, 300)
+    ) +
+  scale_x_continuous(
+    expand = expansion(mult = 0.2),
+    breaks = c(-5, 0, 5, 10)
+  ) +
+  labs(x = "log2fold", y = "-log10(FDR)")
 
-ggsave("volcano.png", h=3, w=7, dpi=600)
+df %>%
+  select(group, sig) %>%
+  count(group, sig)
 ```
 
 
