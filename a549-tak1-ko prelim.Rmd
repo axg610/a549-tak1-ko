@@ -269,6 +269,31 @@ df %>%
 ```
 
 
+```{r violin on 738 wt-upreg DEGs in each condition, fig.width=4, fig.height=4}
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  filter(Gene %in% wt_up_738, treatment == "IL1B") %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop")
+
+ggplot(
+  df,
+  aes(x = group, y = log2fold)
+) +
+  geom_violin(scale = "width") +
+  geom_boxplot(width = 0.3, outliers = F) +
+  geom_jitter(width = 0.3, alpha = 0.1, size = 0.8) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+
 
 
 ```{r pca on tpms}
