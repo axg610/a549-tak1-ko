@@ -202,7 +202,8 @@ df = tpm %>%
   mutate(group = factor(group, levels = unique(group))) %>%
   filter(
     Gene %in% unique(c(wt_up_738, sham_up_751)),
-    group %in% c("WT_naive", "sham_naive")
+    group %in% c("WT_naive", "sham_naive"),
+    treatment == "IL1B"
   ) %>%
   select(Gene, group, log2fold) %>%
   group_by(Gene, group) %>%
@@ -227,8 +228,8 @@ ggplot(df, aes(x = WT_naive, y = sham_naive)) +
   geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
   theme_prismLike +
-  scale_y_continuous(limits = c(-1, 6)) +
-  scale_x_continuous(limits = c(-1, 6)) +
+  scale_y_continuous(limits = c(-2, 12)) +
+  scale_x_continuous(limits = c(-2, 12)) +
   labs(caption = info)
 
 cleanup_objects()
@@ -385,7 +386,8 @@ df = tpm %>%
   mutate(group = factor(group, levels = unique(group))) %>%
   filter(
     Gene %in% unique(c(wt_up_738, ko_up_71)),
-    group %in% c("WT_naive", "TAK1KO_naive")
+    group %in% c("WT_naive", "TAK1KO_naive"),
+    treatment == "IL1B"
   ) %>%
   select(Gene, group, log2fold) %>%
   group_by(Gene, group) %>%
@@ -411,8 +413,8 @@ ggplot(df, aes(x = WT_naive, y = TAK1KO_naive)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
   theme_prismLike +
   labs(caption = info) +
-  scale_x_continuous(limits = c(-1, 6)) +
-  scale_y_continuous(limits = c(-1, 6))
+  scale_x_continuous(limits = c(-2, 12)) +
+  scale_y_continuous(limits = c(-2, 12))
 
 cleanup_objects()
 ```
@@ -801,7 +803,8 @@ df = tpm %>%
   mutate(group = factor(group, levels = unique(group))) %>%
   filter(
     Gene %in% unique(c(wt_up_738, rescue_up_540)),
-    group %in% c("WT_naive", "TAK1KO_TAK1-smRNA")
+    group %in% c("WT_naive", "TAK1KO_TAK1-smRNA"),
+    treatment == "IL1B"
   ) %>%
   select(Gene, group, log2fold) %>%
   group_by(Gene, group) %>%
@@ -827,8 +830,8 @@ ggplot(df, aes(x = WT_naive, y = `TAK1KO_TAK1-smRNA`)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
   theme_prismLike +
   labs(caption = info) +
-  scale_y_continuous(limits = c(-0.5, 6)) +
-  scale_x_continuous(limits = c(-0.5, 6))
+  scale_y_continuous(limits = c(-1, 12)) +
+  scale_x_continuous(limits = c(-1, 12))
 
 cleanup_objects()
 ```
