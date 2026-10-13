@@ -127,6 +127,40 @@ for (name in c(
   )
 }
 
+# write gene lists and sleuth results
+
+group_lists = list()
+
+for (name in c(
+  "wt_up_738",
+  "sham_up_751",
+  "ko_up_71",
+  "lipid_up_68",
+  "rescue_up_540",
+  "mutant_up_139"
+)) {
+  
+  l = get(name)
+  
+  g = case_when(
+    name == "wt_up_738" ~ "WT_naive",
+    name == "sham_up_751" ~ "sham_naive",
+    name == "ko_up_71" ~ "TAK1KO_naive",
+    name == "lipid_up_68" ~ "TAK1KO_lipid",
+    name == "rescue_up_540" ~ "TAK1KO_TAK1-smRNA",
+    name == "mutant_up_139" ~ "TAK1KO_mTAK1-smRNA"
+  )
+  
+  df = dea %>%
+    filter(Gene %in% l, group == g)
+  
+  group_lists[[name]] = df
+}
+
+writexl::write_xlsx(group_lists, "data/venn-group-genelists.xlsx")
+
+
+
 cleanup_objects()
 
 ```
