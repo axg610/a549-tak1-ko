@@ -594,7 +594,68 @@ unaffected_68_stats %>%
 # cleanup_objects()
 ```
 
+Repeat for KO+lipid instead of naive KO...
 
+```{r fig.height=2, fig.width=3, dpi=600}
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+lipid_up_68 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "lipid", sig == "up") %>% 
+  pull(Gene)
+
+genelists = list(
+  wt_up_738 = wt_up_738,
+  lipid_up_68 = lipid_up_68
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  colorScale = myColors,
+  heatmapColsplits = myColsplits,
+  plotType = "euler"
+)
+
+# ===== plot total correlations =====
+
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  filter(
+    Gene %in% unique(c(wt_up_738, lipid_up_68)),
+    group %in% c("WT_naive", "TAK1KO_lipid"),
+    treatment == "IL1B"
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+deming = deming(TAK1KO_lipid~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
+  )
+
+
+ggplot(df, aes(x = WT_naive, y = TAK1KO_lipid)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  labs(caption = info) +
+  scale_x_continuous(limits = c(-2, 12)) +
+  scale_y_continuous(limits = c(-2, 12))
+
+cleanup_objects()
+```
 
 
 
