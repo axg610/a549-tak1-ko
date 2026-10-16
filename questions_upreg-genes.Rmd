@@ -201,7 +201,8 @@ plot_gene_sets(
 df = tpm %>%
   mutate(group = factor(group, levels = unique(group))) %>%
   filter(
-    Gene %in% unique(c(wt_up_738, sham_up_751)),
+    # Gene %in% unique(c(wt_up_738, sham_up_751)),
+    Gene %in% intersect(wt_up_738, sham_up_751),
     group %in% c("WT_naive", "sham_naive"),
     treatment == "IL1B"
   ) %>%
@@ -385,7 +386,8 @@ plot_gene_sets(
 df = tpm %>%
   mutate(group = factor(group, levels = unique(group))) %>%
   filter(
-    Gene %in% unique(c(wt_up_738, ko_up_71)),
+    # Gene %in% unique(c(wt_up_738, ko_up_71)),
+    Gene %in% intersect(wt_up_738, ko_up_71),
     group %in% c("WT_naive", "TAK1KO_naive"),
     treatment == "IL1B"
   ) %>%
@@ -623,7 +625,8 @@ plot_gene_sets(
 df = tpm %>%
   mutate(group = factor(group, levels = unique(group))) %>%
   filter(
-    Gene %in% unique(c(wt_up_738, lipid_up_68)),
+    # Gene %in% unique(c(wt_up_738, lipid_up_68)),
+    Gene %in% intersect(wt_up_738, lipid_up_68),
     group %in% c("WT_naive", "TAK1KO_lipid"),
     treatment == "IL1B"
   ) %>%
@@ -863,7 +866,8 @@ plot_gene_sets(
 df = tpm %>%
   mutate(group = factor(group, levels = unique(group))) %>%
   filter(
-    Gene %in% unique(c(wt_up_738, rescue_up_540)),
+    # Gene %in% unique(c(wt_up_738, rescue_up_540)),
+    Gene %in% intersect(wt_up_738, rescue_up_540),
     group %in% c("WT_naive", "TAK1KO_TAK1-smRNA"),
     treatment == "IL1B"
   ) %>%
@@ -1140,7 +1144,8 @@ plot_gene_sets(
 df = tpm %>%
   mutate(group = factor(group, levels = unique(group))) %>%
   filter(
-    Gene %in% unique(c(wt_up_738, mutant_up_139)),
+    # Gene %in% unique(c(wt_up_738, mutant_up_139)),
+    Gene %in% intersect(wt_up_738, mutant_up_139),
     group %in% c("WT_naive", "TAK1KO_mTAK1-smRNA"),
     treatment == "IL1B"
   ) %>%
