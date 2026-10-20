@@ -590,9 +590,6 @@ wilcox.test(
 )
 ```
 
-
-
-
 ```{r pca distance plot, fig.height=3, fig.width=4, dpi=600}
 # distances
 ggplot(
@@ -643,36 +640,20 @@ ggplot(
     )
 ```
 
-```{r wt vs rescues venn, fig.height=4, fig.width=4}
-df = tibble(
-  group = c(
-    "wt",
-    "nat"
-    # "D175A"
+```{r write out pca info for rob}
+writexl::write_xlsx(
+  list(
+    "PCs" = pc_df,
+    "PC centroids" = pc_centroids,
+    "PC distance to NS" = pc_distance,
+    "PC pct variance explained" = pca_var,
+    "PC loadings" = pca_loadings %>%
+      rename(PC1_loading = PC1, PC2_loading = PC2,
+             pct_PC1_contribution = PC1_contribution,
+             pct_PC2_contribution = PC2_contribution)
   ),
-  Gene = list(
-    dea %>% filter(group == "WT_naive", sig != "ns") %>% pull(Gene),
-    dea %>% filter(group == "TAK1KO_TAK1-smRNA", sig != "ns") %>% pull(Gene)
-    # dea %>% filter(group == "TAK1KO_mTAK1-smRNA", sig != "ns") %>% pull(Gene)
-    
-    # dea %>% filter(group == "WT_naive", FDR <= 0.05) %>% pull(Gene),
-    # dea %>% filter(group == "TAK1KO_TAK1-smRNA", FDR <= 0.05) %>% pull(Gene),
-    # dea %>% filter(group == "TAK1KO_mTAK1-smRNA", FDR <= 0.05) %>% pull(Gene)
-  )
+  "data/pca_parameters.xlsx"
 )
-
-mat = df %>% 
-  unnest(Gene) %>%
-  mutate(value = 1) %>%
-  pivot_wider(names_from = "group", values_from = "value") %>%
-  mutate(across(c(wt, wt), ~ replace_na(.x, 0)))
-
-plot_euler(
-  mat,
-  plotType = "euler",
-  quants = c("counts", "percent"),
-  plotTitle = NULL
-  )
 ```
 
 
