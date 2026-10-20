@@ -487,38 +487,39 @@ ggplot(
 ```{r what drives the upward shift along pc2?}
 
 # get rescue-unique 118 genes
-wt_up_738 = dea %>% 
-  filter(condition == "WT", sig == "up") %>% 
-  pull(Gene)
+unique_to_rescue = setdiff(
+  dea %>% filter(group == "TAK1KO_TAK1-smRNA", sig == "up") %>% pull(Gene),
+  dea %>% filter(group == "WT_naive", sig == "up") %>% pull(Gene)
+)
 
-rescue_up_540 = dea %>%
-  filter(group == "TAK1KO_TAK1-smRNA", sig == "up") %>%
-  # filter(group == "sham_naive", sig == "up") %>%
-  pull(Gene)
-
-wt_rescue_setdiff = setdiff(rescue_up_540, wt_up_738)
 
 # rank pc2 loadings and check if in 118
-pc2_loadings <- pca_loadings %>%
+df_rescue <- pca_loadings %>%
   select(Gene, PC2) %>%
   arrange(desc(PC2)) %>%
   mutate(
     rank = row_number(),
-    in_118 = Gene %in% wt_rescue_setdiff
+    in_set = Gene %in% unique_to_rescue
   )
 
-# plot ranks
-barplot(deframe(select(pc2_loadings, PC2)))
+# pull loadings for later
+unq_rescue_loadings = df_rescue %>% filter(in_set) %>% pull(PC2)
 
-ggplot(filter(pc2_loadings, in_118), aes(x = rank)) +
+# plot ranks
+barplot(deframe(select(df_rescue, PC2)))
+
+# plot hits
+ggplot(filter(df_rescue, in_set), aes(x = rank)) +
   geom_segment(
     aes(xend = rank, y = 0, yend = 1),
     color = "firebrick2",
     linewidth = 0.4
   ) +
-  scale_x_continuous(breaks = c(1, max(pc2_loadings$rank)))
+  scale_x_continuous(breaks = c(1, max(df_rescue$rank)))
 
-ggplot(pc2_loadings, aes(x = PC2, fill = in_118)) +
+# plot density
+
+ggplot(df_rescue, aes(x = PC2, fill = in_set)) +
   geom_density(alpha = 0.4) +
   scale_fill_manual(
     values = c("FALSE" = "grey30", "TRUE" = "firebrick1"),
@@ -529,6 +530,64 @@ ggplot(pc2_loadings, aes(x = PC2, fill = in_118)) +
     y = "density",
     fill = NULL
   )
+
+
+
+
+# repeat for a similarly-sized group, sham-unique 106 genes
+
+unique_to_sham = setdiff(
+  dea %>% filter(group == "sham_naive", sig == "up") %>% pull(Gene),
+  dea %>% filter(group == "WT_naive", sig == "up") %>% pull(Gene)
+)
+
+# rank pc2 loadings and check if in 106
+df_sham <- pca_loadings %>%
+  select(Gene, PC2) %>%
+  arrange(desc(PC2)) %>%
+  mutate(
+    rank = row_number(),
+    in_set = Gene %in% unique_to_sham
+  )
+
+# pull loadings for later
+unq_sham_loadings = df_sham %>% filter(in_set) %>% pull(PC2)
+
+# plot density
+
+ggplot(df_sham, aes(x = PC2, fill = in_set)) +
+  geom_density(alpha = 0.4) +
+  scale_fill_manual(
+    values = c("FALSE" = "grey30", "TRUE" = "firebrick1"),
+    labels = c("other DEGs", "106 sham-unique DEGs")
+  ) +
+  labs(
+    x = "PC2 loading",
+    y = "density",
+    fill = NULL
+  )
+
+# rescue-unique vs all other PCA genes
+wilcox.test(
+  unq_rescue_loadings,
+  pca_loadings %>%
+    filter(!Gene %in% unique_to_rescue) %>%
+    pull(PC2)
+)
+
+# sham-unique vs all other PCA genes
+wilcox.test(
+  unq_sham_loadings,
+  pca_loadings %>%
+    filter(!Gene %in% unique_to_sham) %>%
+    pull(PC2)
+)
+
+# rescue-unique vs sham-unique
+wilcox.test(
+  unq_rescue_loadings,
+  unq_sham_loadings
+)
 ```
 
 
