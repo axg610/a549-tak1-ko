@@ -291,6 +291,42 @@ ggplot(
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
+
+df = df %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  )
+
+violin_tukey = aov(log2fold~group, df) %>%
+  TukeyHSD() %>%
+  .$group %>%
+  as.data.frame() %>%
+  rownames_to_column("comparison") %>%
+  mutate(sig = case_when(
+    `p adj` <= 0.001                    ~ "***",
+    `p adj`  <= 0.01 & `p adj`  > 0.001    ~ "**",
+    `p adj`  <= 0.05 & `p adj`  > 0.01     ~ "*",
+    `p adj`  > 0.05                     ~ "ns")
+  ) %>%
+  arrange(comparison)
+
+violin_df = df %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+writexl::write_xlsx(
+  list(
+    "log2fold_tpm" = violin_df,
+    "tukey" = violin_tukey
+  ),
+  "data/wt_up_738-folds-allConditions.xlsx"
+  )
 ```
 
 
