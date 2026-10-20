@@ -2,15 +2,12 @@
 library(ComplexHeatmap)
 library(pheatmap)
 library(tidyverse)
-library(ggrepel)
 library(eulerr)
 ```
 
 ```{r data and helpers}
 source("scripts/main-data.R")
 source("scripts/helpers.R")
-
-
 
 # a prism-like ggplot2 theme
 
@@ -333,9 +330,24 @@ writexl::write_xlsx(
 
 
 ```{r pca on tpms}
+
+# wt_up_738
+goi = dea %>%
+  filter(
+    # group == "WT_naive",
+    # sig == "up"
+    FDR <= 0.05,
+    abs(log2fold) >= 1
+  ) %>%
+  pull(Gene) %>%
+  unique()
+
 # build matrix
-mat <- tpm %>%
-  filter(Gene %in% goi, treatment %in% c("NS", "IL1B")) %>%
+pc_mat <- tpm %>%
+  filter(
+    Gene %in% goi,
+    treatment %in% c("NS", "IL1B")
+    ) %>%
   mutate(sample = paste0(condition, "_", rescue, "_", treatment, "_", rep)) %>%
   select(Gene, sample, log2tpm) %>%
   pivot_wider(names_from = sample, values_from = log2tpm) %>%
@@ -343,7 +355,7 @@ mat <- tpm %>%
   as.matrix()
 
 # PCA
-pca <- prcomp(t(mat), center = TRUE, scale. = FALSE)
+pca <- prcomp(t(pc_mat), center = TRUE, scale. = FALSE)
 
 # PCA values dataframe
 pc_df <- as.data.frame(pca$x) %>%
@@ -371,6 +383,17 @@ pc_df <- as.data.frame(pca$x) %>%
     id = factor(id, levels = unique(id)),
     .before = 1
   )
+
+# variation explained by each pc
+pca_var <- (pca$sdev^2 / sum(pca$sdev^2)) * 100
+pca_var <- pca_var %>%
+  as.data.frame() %>%
+  setNames("variance_explained") %>%
+  mutate(
+    PC = paste0("PC", row_number()),
+    cumulative_variance = cumsum(variance_explained)
+  ) %>%
+  select(PC, variance_explained, cumulative_variance)
 
 # across-replicate centroids
 pc_centroids <- pc_df %>%
@@ -416,37 +439,20 @@ tukey = pc_distance %>%
     TRUE           ~ "ns"
   )
 )
+
+# PCA loadings for each gene
+pca_loadings <- as.data.frame(pca$rotation) %>%
+  rownames_to_column("Gene") %>%
+  select(Gene, PC1, PC2) %>%
+  mutate(
+    PC1_contribution = PC1^2 / sum(PC1^2) * 100,
+    PC2_contribution = PC2^2 / sum(PC2^2) * 100
+  )
+
+# cleanup_objects()
 ```
 
-```{r pca plot, fig.height=2.5, fig.width=6, dpi=600}
-# raw tpm pca
-
-# ggplot(
-#   pc_df, 
-#   aes(
-#     x = PC1, 
-#     y = PC2
-#     )
-#   ) +
-#   geom_point(
-#     aes(
-#       color = treatment, 
-#       shape = condition
-#       )
-#     ) +
-#   geom_text_repel(
-#     aes(
-#       label = rescue, 
-#       color = treatment
-#       ),
-#     size = 3,
-#     max.overlaps = 10
-#     ) +
-#   scale_shape_manual(values = c(21, 5, 4)) +
-#   theme(
-#     aspect.ratio = 1
-#   )
-
+```{r pca plot}
 ggplot(
   pc_df,
   aes(
@@ -461,22 +467,72 @@ ggplot(
     )
   ) +
   scale_shape_manual(values = c(16, 17, 0, 3, 15, 7)) +
-  theme_bw() +
+  # theme_bw() +
   theme(
     aspect.ratio = 1,
-    panel.grid.minor = element_blank(),
-    panel.border = element_rect(color = "black", fill = NA),
-    axis.line = element_line(color = "black"),
-    axis.ticks = element_line(color = "black"),
-    text = element_text(size = 12, color = "black"),
-    legend.text = element_text(color = "black"),
-    legend.title = element_text(color = "black")
+  #   panel.grid.minor = element_blank(),
+  #   panel.border = element_rect(color = "black", fill = NA),
+  #   axis.line = element_line(color = "black"),
+  #   axis.ticks = element_line(color = "black"),
+  #   text = element_text(size = 12, color = "black"),
+  #   legend.text = element_text(color = "black"),
+  #   legend.title = element_text(color = "black")
   ) +
   labs(
     color = "treatment",
     shape = "condition"
   )
 ```
+
+```{r what drives the upward shift along pc2?}
+
+# get rescue-unique 118 genes
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+rescue_up_540 = dea %>%
+  filter(group == "TAK1KO_TAK1-smRNA", sig == "up") %>%
+  # filter(group == "sham_naive", sig == "up") %>%
+  pull(Gene)
+
+wt_rescue_setdiff = setdiff(rescue_up_540, wt_up_738)
+
+# rank pc2 loadings and check if in 118
+pc2_loadings <- pca_loadings %>%
+  select(Gene, PC2) %>%
+  arrange(desc(PC2)) %>%
+  mutate(
+    rank = row_number(),
+    in_118 = Gene %in% wt_rescue_setdiff
+  )
+
+# plot ranks
+barplot(deframe(select(pc2_loadings, PC2)))
+
+ggplot(filter(pc2_loadings, in_118), aes(x = rank)) +
+  geom_segment(
+    aes(xend = rank, y = 0, yend = 1),
+    color = "firebrick2",
+    linewidth = 0.4
+  ) +
+  scale_x_continuous(breaks = c(1, max(pc2_loadings$rank)))
+
+ggplot(pc2_loadings, aes(x = PC2, fill = in_118)) +
+  geom_density(alpha = 0.4) +
+  scale_fill_manual(
+    values = c("FALSE" = "grey30", "TRUE" = "firebrick1"),
+    labels = c("other DEGs", "118 rescue-unique DEGs")
+  ) +
+  labs(
+    x = "PC2 loading",
+    y = "density",
+    fill = NULL
+  )
+```
+
+
+
 
 ```{r pca distance plot, fig.height=3, fig.width=4, dpi=600}
 # distances
