@@ -359,7 +359,7 @@ cleanup_objects()
 
 Q2a: RE KO - How many DEGs are induced (≥2-fold, P ≤ 0.05) in the KO? How many are significantly different (≥2/≤0.5 -fold, P ≤ 0.05) from wt?
 
-```{r, fig.height=2, fig.width=3, dpi=600}
+```{r, fig.height=9, fig.width=6, dpi=600}
 wt_up_738 = dea %>% 
   filter(condition == "WT", sig == "up") %>% 
   pull(Gene)
@@ -420,20 +420,33 @@ ggplot(df, aes(x = WT_naive, y = TAK1KO_naive)) +
   scale_x_continuous(limits = c(-2, 12)) +
   scale_y_continuous(limits = c(-2, 12))
 
-# # ===== pull 68 overlaps =====
-# 
-# intersect_68 = intersect(wt_up_738, ko_up_71)
-# 
-# tak1ko_il1b_interaction = read_tsv("data/KO_IL1B_interaction_test.txt")
-# 
-# 
-# out = mat[intersect_68, ] %>%
-#   as.data.frame() %>%
-#   rownames_to_column("Gene") %>%
-#   left_join(tak1ko_il1b_interaction) %>%
-#   relocate(Gene, contrast, log2diff, FDR, .before = 1)
-# 
-# writexl::write_xlsx(out, "data/wt-ko-intersect68-matrix.xlsx")
+# ===== pull 68 overlaps =====
+
+intersect_68 = intersect(wt_up_738, ko_up_71)
+
+paste(intersect_68, collapse = ", ") %>% clipr::write_clip()
+
+tak1ko_il1b_interaction = read_tsv("data/KO_IL1B_interaction_test.txt")
+
+
+out = mat[intersect_68, ] %>%
+  as.data.frame() %>%
+  rownames_to_column("Gene") %>%
+  left_join(tak1ko_il1b_interaction) %>%
+  relocate(Gene, contrast, log2diff, FDR, .before = 1)
+
+intersect_68_ordered = out %>% arrange(log2diff) %>% pull(Gene)
+
+mat[intersect_68_ordered, ] %>%
+  Heatmap(
+    cluster_columns = F,
+    cluster_rows = F,
+    column_split = myColsplits,
+    col = myColors,
+    row_names_gp = gpar(cex = 0.7)
+  )
+
+writexl::write_xlsx(out, "data/wt-ko-intersect68-matrix.xlsx")
 
 cleanup_objects()
 ```
@@ -1126,7 +1139,7 @@ cleanup_objects()
 
 Q4d: re 118 rescue-unique genes
 
-```{r, fig.width=4, fig.height=4}
+```{r, fig.width=6, fig.height=11}
 
 # ===== pull genes =====
 
@@ -1205,6 +1218,17 @@ violin_tukey = aov(log2fold~group, df) %>%
 
 # cleanup_objects()
 
+# ===== heatmap =====
+
+unique_118 = setdiff(rescue_up_540, wt_up_738)
+
+mat[unique_118, ] %>%
+  Heatmap(
+    cluster_columns = F,
+    column_split = myColsplits,
+    col = myColors,
+    row_names_gp = gpar(cex = 0.5)
+  )
 ```
 
 

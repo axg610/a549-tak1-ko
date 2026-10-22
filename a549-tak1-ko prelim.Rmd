@@ -266,7 +266,7 @@ df %>%
 ```
 
 
-```{r violin on 738 wt-upreg DEGs in each condition, fig.width=4, fig.height=4}
+```{r violin on 738 wt-upreg DEGs in each condition, fig.width=3, fig.height=2}
 wt_up_738 = dea %>% 
   filter(condition == "WT", sig == "up") %>% 
   pull(Gene)
@@ -282,12 +282,16 @@ ggplot(
   df,
   aes(x = group, y = log2fold)
 ) +
-  geom_violin(scale = "width") +
-  geom_boxplot(width = 0.3, outliers = F) +
-  geom_jitter(width = 0.3, alpha = 0.1, size = 0.8) +
+  geom_violin(scale = "width", lwd = 0.4, color = "black") +
+  geom_boxplot(width = 0.3, outliers = F, lwd = 0.4, color = "black") +
+  # geom_jitter(width = 0.3, alpha = 0.1, size = 0.8) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
-  )
+  ) +
+  theme_prismLike +
+  theme(aspect.ratio = 0.5)
+
+ggsave("violin.png", h = 2, w = 3, dpi = 600)
 
 df = df %>%
   mutate(
