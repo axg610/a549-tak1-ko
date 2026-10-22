@@ -917,6 +917,7 @@ ggplot(df, aes(x = WT_naive, y = `TAK1KO_TAK1-smRNA`)) +
   scale_y_continuous(limits = c(-1, 12)) +
   scale_x_continuous(limits = c(-1, 12))
 
+
 cleanup_objects()
 ```
 
@@ -1123,6 +1124,88 @@ df %>%
 cleanup_objects()
 ```
 
+Q4d: re 118 rescue-unique genes
+
+```{r, fig.width=4, fig.height=4}
+
+# ===== pull genes =====
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+rescue_up_540 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+unique_118 = setdiff(rescue_up_540, wt_up_738)
+
+# ===== write to xlsx =====
+# 
+# rescue_interaction = read_tsv("data/nativeRescue_interaction_test.txt")
+# 
+# wt_rescue_interaction = read_tsv("data/wt_vs_rescued_interaction_test.txt")
+# 
+# out = mat[unique_118, ] %>%
+#   as.data.frame() %>%
+#   rownames_to_column("Gene") %>%
+#   left_join(rescue_interaction, by = "Gene") %>%
+#   select(-contrast) %>%
+#   relocate(Gene, nat_ko_log2diff = log2diff, nat_ko_FDR = FDR, .before = 1) %>%
+#   left_join(wt_rescue_interaction, by = "Gene") %>%
+#   select(-contrast) %>%
+#   relocate(nat_wt_log2diff = log2diff, nat_wt_FDR = FDR, .before = `WT naive N1`)
+# 
+# writexl::write_xlsx(out, "data/wt-nat-unique118-matrix.xlsx")
+
+# ===== violin plot for 118 =====
+
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  filter(Gene %in% unique_118, treatment == "IL1B") %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop")
+
+ggplot(
+  df,
+  aes(x = group, y = log2fold)
+) +
+  geom_violin(scale = "width") +
+  geom_boxplot(width = 0.3, outliers = F) +
+  geom_jitter(width = 0.2, alpha = 0.3, size = 0.8) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+df = df %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  )
+
+violin_tukey = aov(log2fold~group, df) %>%
+  TukeyHSD() %>%
+  .$group %>%
+  as.data.frame() %>%
+  rownames_to_column("comparison") %>%
+  mutate(sig = case_when(
+    `p adj` <= 0.001                    ~ "***",
+    `p adj`  <= 0.01 & `p adj`  > 0.001    ~ "**",
+    `p adj`  <= 0.05 & `p adj`  > 0.01     ~ "*",
+    `p adj`  > 0.05                     ~ "ns")
+  ) %>%
+  arrange(comparison)
+
+# cleanup_objects()
+
+```
 
 
 
