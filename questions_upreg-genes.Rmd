@@ -157,7 +157,7 @@ for (name in c(
   group_lists[[name]] = df
 }
 
-writexl::write_xlsx(group_lists, "data/venn-group-genelists.xlsx")
+writexl::write_xlsx(group_lists, "data/venn-up-group-genelists.xlsx")
 
 
 
@@ -689,6 +689,48 @@ ggplot(df, aes(x = WT_naive, y = TAK1KO_lipid)) +
   scale_y_continuous(limits = c(-2, 12))
 
 cleanup_objects()
+```
+
+Q2.261026. Can you make a Venn showing the 738 upreg, these downreg DEGs in the KO, the 71 DEGs that were still up in the KO cells.
+
+```{r}
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+altered_503 = read_tsv("data/KO_IL1B_interaction_test.txt") %>%
+  filter(Gene %in% wt_up_738) %>%
+  filter(FDR <= 0.05) %>%
+  pull(Gene)
+
+genelists = list(
+  wt_up_738 = wt_up_738,
+  ko_up_71 = ko_up_71,
+  altered_503 = altered_503
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  # mat_cols = c(1:4, 9:12)
+  colorScale = myColors,
+  heatmapColsplits = myColsplits,
+  plotType = "euler"
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  # mat_cols = c(1:4, 9:12)
+  colorScale = myColors,
+  heatmapColsplits = myColsplits,
+  plotType = "venn",
+  show_heatmap = F
+)
 ```
 
 
@@ -1419,7 +1461,84 @@ cleanup_objects()
 
 
 
+Assemble a final wt_up_738 dataset for Rob
 
+```{r}
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+tpm_738 = tpm %>%
+  filter(Gene %in% wt_up_738) %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  ) %>%
+  select(Gene, group, rep, treatment, log2tpm) %>%
+  unite(name, c(group, treatment, rep), sep = "_") %>%
+  pivot_wider(values_from = "log2tpm", names_from = "name") %>%
+  select(
+    Gene,
+    contains("wt_NS"), contains("wt_IL1B"),
+    contains("sham_NS"), contains("sham_IL1B"),
+    contains("ko_NS"), contains("ko_IL1B"),
+    contains("lipid_NS"), contains("lipid_IL1B"),
+    contains("nat_NS"), contains("nat_IL1B"),
+    contains("D175A_NS"), contains("D175A_IL1B")
+  )
+
+log2fold_tpm_738 = tpm %>%
+  filter(Gene %in% wt_up_738, treatment == "IL1B") %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  ) %>%
+  select(Gene, group, rep, log2fold) %>%
+  unite(name, c(group, rep), sep = "_") %>%
+  pivot_wider(values_from = "log2fold", names_from = "name")
+
+dea_738 = dea %>%
+  filter(Gene %in% wt_up_738) %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  ) %>%
+  select(Gene, group, log2fold, FDR) %>%
+  pivot_longer(cols = c(log2fold, FDR)) %>%
+  unite(name, c(group, name), sep = "_") %>%
+  pivot_wider(values_from = "value", names_from = "name")
+
+tak1ko_il1b_interaction = read_tsv("data/KO_IL1B_interaction_test.txt") %>%
+  filter(Gene %in% wt_up_738)
+
+wt_up_738_all_data = list(
+  log2tpm = tpm_738,
+  log2fold_tpm = log2fold_tpm_738,
+  dea = dea_738,
+  ko_il1b_interaction = tak1ko_il1b_interaction
+)
+
+writexl::write_xlsx(wt_up_738_all_data, "data/wt_up_738_all_data.xlsx")
+
+```
 
 
 
