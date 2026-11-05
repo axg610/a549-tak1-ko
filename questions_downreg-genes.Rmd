@@ -1,0 +1,1029 @@
+```{r setup, include=F}
+library(ComplexHeatmap)
+library(pheatmap)
+library(eulerr)
+library(tidyverse)
+library(deming)
+source("scripts/helpers.R")
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 5,
+  fig.height = 5,
+  dpi = 600,
+  fig.show = "hold",
+  out.width = "50%"
+)
+```
+
+```{r read data, include=F}
+source("scripts/main-data.R")
+source("scripts/compare-genelists-function.R")
+```
+
+```{r themes}
+
+# a consistent color scale
+
+goi_up = dea %>%
+  filter(
+    FDR <= 0.05,
+    log2fold >= 1
+  ) %>%
+  pull(Gene) %>%
+  unique()
+
+up_mat = mat[goi_up, ]
+
+myColors = generic_l2f_heatmap_colors(
+  up_mat,
+  scaleType = "symmetric",
+  clipFactor = 0.995
+)
+
+# column splits 
+
+myColsplits = factor(
+  c(
+    rep("WT", 4),
+    rep("sham", 4),
+    rep("TAK1KO", 4),
+    rep("KO + lipid", 4),
+    rep("rescue", 4),
+    rep("mutant rescue", 4)
+  ),
+  levels = c(
+    "WT",
+    "sham",
+    "TAK1KO",
+    "KO + lipid",
+    "rescue",
+    "mutant rescue"
+  )
+)
+
+# a prism-like ggplot2 theme
+
+theme_prismLike = theme_bw() +
+    theme(
+    aspect.ratio = 1,
+    panel.grid = element_blank(),
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    axis.ticks.length = unit(-0.15, "cm"),
+    axis.ticks.y.right = element_line(),
+    axis.ticks = element_line(color = "black", linewidth = 0.6),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.6)
+  )
+
+cleanup_objects()
+```
+
+## Repeating wt_up_738 analyses on downregulated genes
+
+258 DEGs downregulated by IL-1β (<0.5-fold, P ≤ 0.05) 
+
+Check everything in relation to wt_dn_258... I left out KO_lipid as this group had 0 genes.
+
+```{r fig.height=3, fig.width=4}
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+sham_dn_262 = dea %>% 
+  filter(condition == "sham", sig == "dn") %>% 
+  pull(Gene)
+
+ko_dn_1 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "dn") %>% 
+  pull(Gene)
+
+lipid_dn_0 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "lipid", sig == "dn") %>% 
+  pull(Gene)
+
+rescue_dn_72 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "dn") %>% 
+  pull(Gene)
+
+mutant_dn_13 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "dn") %>% 
+  pull(Gene)
+
+for (name in c(
+  "sham_dn_262",
+  "ko_dn_1",
+  # "lipid_dn_0",
+  "rescue_dn_72",
+  "mutant_dn_13"
+)) {
+  
+  plot_gene_sets(
+    list(
+      wt_dn_258 = wt_dn_258,
+      set = get(name)
+    ) %>% setNames(c("wt_dn_258", name)),
+    show_heatmap = F
+  )
+}
+
+# write gene lists and sleuth results
+
+group_lists = list()
+
+for (name in c(
+  "wt_dn_258",
+  "sham_dn_262",
+  "ko_dn_1",
+  "lipid_dn_0",
+  "rescue_dn_72",
+  "mutant_dn_13"
+)) {
+  
+  l = get(name)
+  
+  g = case_when(
+    name == "wt_dn_258" ~ "WT_naive",
+    name == "sham_dn_262" ~ "sham_naive",
+    name == "ko_dn_1" ~ "TAK1KO_naive",
+    name == "lipid_dn_0" ~ "TAK1KO_lipid",
+    name == "rescue_dn_72" ~ "TAK1KO_TAK1-smRNA",
+    name == "mutant_dn_13" ~ "TAK1KO_mTAK1-smRNA"
+  )
+  
+  df = dea %>%
+    filter(Gene %in% l, group == g)
+  
+  group_lists[[name]] = df
+}
+
+writexl::write_xlsx(group_lists, "data/venn-down-group-genelists.xlsx")
+
+
+
+cleanup_objects()
+
+```
+
+
+
+## Downregulated: WT vs sham...
+
+Q1a: How many genes downreg in sham compared to wt? **AG: overlap looks reasonable. 64.7% of wt_dn_258 is also downregulated in sham. For reference this number was 87.4% in wt_up_738.**
+
+```{r}
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+sham_dn_262 = dea %>% 
+  filter(condition == "sham", sig == "dn") %>% 
+  pull(Gene)
+
+genelists = list(
+  wt_dn_258 = wt_dn_258,
+  sham_dn_262 = sham_dn_262
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  # mat_cols = 1:8,
+  colorScale = myColors,
+  heatmapColsplits = myColsplits,
+  plotType = "euler"
+)
+```
+
+Q1a.1: effect of just going with the P-value (i.e., drop fold criteria?) Does it collapse into a single group. **AG: good collapse into 94.2% from Q1a. Suggests more per-rep variation in downregulated genes compared to upreg.**
+
+```{r}
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+sham_dn_262 = dea %>% 
+  filter(condition == "sham", sig == "dn") %>% 
+  pull(Gene)
+
+union = unique(c(wt_dn_258, sham_dn_262))
+
+# pull pool genes, then drop to pvalue criteria only only
+
+wt_up_l2f_dropped = dea %>%
+  filter(condition == "WT", Gene %in% union) %>%
+  filter(FDR <= 0.05, log2fold < 0) %>%
+  pull(Gene)
+
+sham_up_l2f_dropped = dea %>%
+  filter(condition == "sham", Gene %in% union) %>%
+  filter(FDR <= 0.05, log2fold < 0) %>%
+  pull(Gene)
+
+genelists = list(
+  wt_up_l2f_dropped = wt_up_l2f_dropped,
+  sham_up_l2f_dropped = sham_up_l2f_dropped
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  # mat_cols = 1:8,
+  colorScale = myColors,
+  heatmapColsplits = myColsplits,
+  plotType = "euler"
+)
+
+cleanup_objects()
+
+```
+
+Q1a.2: correlations for wt_dn_258: WT vs sham. **AG: good correlation, slightly worse than upregulated.**
+
+```{r, fig.height=2, fig.width=4}
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  filter(
+    Gene %in% wt_dn_258,
+    group %in% c("WT_naive", "sham_naive"),
+    treatment == "IL1B"
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+deming = deming(sham_naive~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
+  )
+
+
+ggplot(df, aes(x = WT_naive, y = sham_naive)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  labs(caption = info) +
+  scale_x_continuous(limits = c(0, -4.2)) +
+  scale_y_continuous(limits = c(0, -4.2))
+
+cleanup_objects()
+```
+
+Q1b: In how many genes is the IL1B response affected by sham (P<= 0.05)? **AG: no sham effects are significant.**
+
+```{r fig.height=3, fig.width=4}
+sham_il1b_interaction = read_tsv("data/sham_IL1B_interaction_test.txt")
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = as.data.frame(wt_dn_258, nm = "Gene") %>%
+  left_join(
+    sham_il1b_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+# summary(df$log2diff)
+
+hist(df$FDR, breaks = 100)
+# summary(df$FDR)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+cleanup_objects()
+```
+
+## Downregulated: WT vs KO...
+
+Q2a: how many genes downreg in KO compared to wt? **AG: no wt_dn_258 genes remain downreg in the absence of TAK1. One unique downregulation: ADAMTS15. RNAseq explorer suggests slight change in baseline expression following KO, but mostly noise around low expression.**
+
+```{r}
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+ko_dn_1 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "dn") %>% 
+  pull(Gene)
+
+genelists = list(
+  wt_dn_258 = wt_dn_258,
+  ko_dn_1 = ko_dn_1
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  # mat_cols = c(1:4, 9:12)
+  colorScale = myColors,
+  heatmapColsplits = myColsplits,
+  plotType = "venn"
+)
+```
+
+Q2a.1: effect of just going with the P-value (i.e., drop fold criteria?) Does it collapse into a single group. **AG: Yes, collapses. We also bring in HES1 and ID2 in addition to ADAMTS15. The first 2 genes are actually pretty interesting!**
+
+```{r}
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+ko_dn_1 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "dn") %>% 
+  pull(Gene)
+
+union = unique(c(wt_dn_258, ko_dn_1))
+
+# pull pool genes, then drop to pvalue criteria only only
+
+wt_dn_l2f_dropped = dea %>%
+  filter(condition == "WT", Gene %in% union) %>%
+  filter(FDR <= 0.05, log2fold < 0) %>%
+  pull(Gene)
+
+ko_dn_l2f_dropped = dea %>%
+  filter(group == "TAK1KO_naive", Gene %in% union) %>%
+  filter(FDR <= 0.05, log2fold < 0) %>%
+  pull(Gene)
+
+genelists = list(
+  wt_dn_l2f_dropped = wt_dn_l2f_dropped,
+  ko_dn_l2f_dropped = ko_dn_l2f_dropped
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  # mat_cols = 1:8,
+  colorScale = myColors,
+  heatmapColsplits = myColsplits,
+  plotType = "euler"
+)
+
+cleanup_objects()
+```
+
+Q2a.2: correlations for wt_dn_258: WT vs KO. **AG: poor correlation as expected.**
+
+```{r, fig.height=2, fig.width=4}
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  filter(
+    Gene %in% wt_dn_258,
+    group %in% c("WT_naive", "TAK1KO_naive"),
+    treatment == "IL1B"
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+deming = deming(TAK1KO_naive~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
+  )
+
+
+ggplot(df, aes(x = WT_naive, y = TAK1KO_naive)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  labs(caption = info) +
+  scale_x_continuous(limits = c(0, -4.2)) +
+  scale_y_continuous(limits = c(0, -4.2))
+
+cleanup_objects()
+```
+
+Q2b: In how many genes is the IL1B response affected by TAK1KO (P<= 0.05)?. **AG: 98.4% of downregulation events are reversed by KO. 62.0% significant.**
+
+```{r fig.height=3, fig.width=5}
+tak1ko_il1b_interaction = read_tsv("data/KO_IL1B_interaction_test.txt")
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = as.data.frame(wt_dn_258, nm = "Gene") %>%
+  left_join(
+    tak1ko_il1b_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+# summary(df$log2diff)
+
+
+hist(df$FDR, breaks = 100)
+# summary(df$FDR)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+```
+
+
+## Downregulated: WT vs lipid...
+
+Q3a: How many genes downreg in KO+lipid compared to wt? **AG: Zero. Skipping Venn and heatmaps.**
+
+Q3a.1: effect of dropping fold criteria? **AG: Skipping.**
+
+Q3a.2: correlations for wt_dn_258: WT vs KO. **AG: poor correlation as expected. Same as KO without lipid.**
+
+```{r, fig.height=2, fig.width=4}
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  filter(
+    Gene %in% wt_dn_258,
+    group %in% c("WT_naive", "TAK1KO_lipid"),
+    treatment == "IL1B"
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+deming = deming(TAK1KO_lipid~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
+  )
+
+
+ggplot(df, aes(x = WT_naive, y = TAK1KO_lipid)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  labs(caption = info) +
+  scale_x_continuous(limits = c(0, -4.2)) +
+  scale_y_continuous(limits = c(0, -4.2))
+
+cleanup_objects()
+```
+
+Q3b: In how many genes is the KO IL1B response affected by addition of lipid (P<=0.05)? **AG: lipid doesn't do anything. Distribution around 0, 0% of effects are significant.**
+
+```{r fig.height=3, fig.width=4}
+lipid_interaction = read_tsv("data/KOlipid_interaction_test.txt")
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = as.data.frame(wt_dn_258, nm = "Gene") %>%
+  left_join(
+    lipid_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+# summary(df$log2diff)
+
+hist(df$FDR, breaks = 100)
+# summary(df$FDR)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+cleanup_objects()
+```
+
+## Downregulated: WT vs rescue:
+
+Q4a: how many genes downreg in KO compared to wt? **AG: only 18.99% of downregulation events are rescued. 23 unique downregulation events occur. These are: ADGRF3, BCL9, BEND3P1, CARNS1, FDXACB1, GCNT1, GVQW3, GZF1, INKA1, KCTD7, MIDN, MTNR1A, OSR1, RIMBP3C, SERTAD3, SPRY2, STX1A, TET1, ZNF281, ZNF367, ZNF395, ZNF396, ZNF555.**
+
+```{r}
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+rescue_dn_72 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "dn") %>% 
+  pull(Gene)
+
+genelists = list(
+  wt_dn_258 = wt_dn_258,
+  rescue_dn_72 = rescue_dn_72
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  # mat_cols = c(1:4, 9:12, 17:20),
+  plotType = "euler",
+  colorScale = myColors,
+  heatmapColsplits = myColsplits
+)
+```
+
+Q4a.1: take the above Venn and drop the log2fold criteria? See if it collapses. **AG: good collapse. 11 unique genes are: ADGRF3, BEND3P1, CARNS1, FDXACB1, GCNT1, INKA1, MTNR1A, RIMBP3C, SPRY2, ZNF367, ZNF396. Would trust these more bc log2fold threshold feels unreliable for downregulated genes.**
+
+```{r}
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+rescue_dn_72 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "dn") %>% 
+  pull(Gene)
+
+union = unique(c(wt_dn_258, rescue_dn_72))
+
+# re-establish gene pools with l2f threshold dropped
+
+wt_dn_l2f_dropped = dea %>%
+  filter(
+    condition == "WT", 
+    FDR <= 0.05,
+    Gene %in% union
+    ) %>%
+  pull(Gene)
+
+rescue_dn_l2f_dropped = dea %>%
+  filter(
+    condition == "TAK1KO",
+    rescue == "TAK1-smRNA",
+    FDR <= 0.05,
+    Gene %in% union
+  ) %>%
+  pull(Gene)
+
+genelists = list(
+  wt_dn_l2f_dropped = wt_dn_l2f_dropped,
+  rescue_dn_l2f_dropped = rescue_dn_l2f_dropped
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  plotType = "euler",
+  colorScale = myColors,
+  heatmapColsplits = myColsplits
+)
+
+cleanup_objects()
+
+
+```
+
+Q4a.2: correlations for wt_dn_258: WT vs rescue. **AG: ok correlation between WT and rescued expression. Could be higher.**
+
+```{r, fig.height=2, fig.width=4}
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+rescue_dn_72 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "dn") %>% 
+  pull(Gene)
+
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  filter(
+    Gene %in% wt_dn_258,
+    group %in% c("WT_naive", "TAK1KO_TAK1-smRNA"),
+    treatment == "IL1B"
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+deming = deming(`TAK1KO_TAK1-smRNA`~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
+  )
+
+ggplot(df, aes(x = WT_naive, y = `TAK1KO_TAK1-smRNA`)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  labs(caption = info) +
+  scale_y_continuous(limits = c(0, -4.2)) +
+  scale_x_continuous(limits = c(0, -4.2))
+
+cleanup_objects()
+```
+
+Q4b: effect of introducing native TAK1 smRNA to TAK1KO? **AG: 88.8% of wt_dn_258 folds moved back to negative in response to rescue. i.e., 88.8% of downregulations got rescued. 12.4% of all fold differentials were significant.**
+
+```{r, fig.height=3, fig.width=4}
+
+rescue_interaction = read_tsv("data/nativeRescue_interaction_test.txt")
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+rescue_dn_72 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "dn") %>% 
+  pull(Gene)
+
+df = rescue_interaction %>%
+  filter(Gene %in% wt_dn_258)
+
+hist(df$log2diff, breaks = 100)
+# summary(df$log2diff)
+
+hist(df$FDR, breaks = 100)
+# summary(df$FDR)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+cleanup_objects()
+```
+
+Q4c: compare WT and rescued IL1B response? **AG: folds for 5.04% of wt_dn_258 were significantly different in rescue compared to WT. ie WT and rescued downregulations look highly similar.**
+
+```{r, fig.height=3, fig.width=4}
+wt_rescue_interaction = read_tsv("data/wt_vs_rescued_interaction_test.txt")
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = as.data.frame(wt_dn_258, nm = "Gene") %>%
+  left_join(
+    wt_rescue_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+# summary(df$log2diff)
+
+hist(df$FDR, breaks = 100)
+# summary(df$FDR)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+cleanup_objects()
+```
+
+## Downregulated: WT vs rescue:
+
+Q5a: How many genes significant in wt vs D175A? **AG: 3.5% of wt_dn_258 appears rescued.**
+
+```{r}
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+mutant_dn_13 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "dn") %>% 
+  pull(Gene)
+
+genelists = list(
+  wt_dn_258 = wt_dn_258,
+  mutant_dn_13 = mutant_dn_13
+)
+
+plot_gene_sets(
+  genelists,
+  mat,
+  # mat_cols = c(1:4, 9:12, 17:20),
+  plotType = "euler",
+  colorScale = myColors,
+  heatmapColsplits = myColsplits
+)
+
+cleanup_objects()
+```
+
+Q5a.2: correlations for wt_dn_258: WT vs D175A. **AG: worse than the native rescue as expected.**
+
+```{r fig.height=2, fig.width=4}
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  filter(
+    Gene %in% wt_dn_258,
+    group %in% c("WT_naive", "TAK1KO_mTAK1-smRNA"),
+    treatment == "IL1B"
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+pearson = cor.test(df[,2][[1]], df[,3][[1]], method = "pearson")$estimate[[1]]
+
+deming = deming(`TAK1KO_mTAK1-smRNA`~WT_naive, df)
+deming_intercept = deming$coefficients[[1]]
+deming_slope = deming$coefficients[[2]]
+
+info = paste0(
+  "Pearson=", round(pearson, 2), 
+  "; slope=", round(deming_slope, 2),
+  "; intercept=", round(deming_intercept, 2)
+  )
+
+ggplot(df, aes(x = WT_naive, y = `TAK1KO_mTAK1-smRNA`)) +
+  geom_point(shape = 21, fill = "white") +
+  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  theme_prismLike +
+  labs(caption = info) +
+  scale_y_continuous(limits = c(0, -4.2)) +
+  scale_x_continuous(limits = c(0, -4.2))
+
+cleanup_objects()
+```
+
+Q5b: effect of introducing native TAK1 smRNA to TAK1KO? **AG: nothing significant.**
+
+```{r, fig.height=3, fig.width=4}
+rescue_interaction = read_tsv("data/mutantRescue_interaction_test.txt")
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = rescue_interaction %>%
+  filter(Gene %in% wt_dn_258)
+
+hist(df$log2diff, breaks = 100)
+# summary(df$log2diff)
+
+hist(df$FDR, breaks = 100)
+# summary(df$FDR)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+cleanup_objects()
+```
+
+Q5c: compare WT and rescued IL1B response? **AG: 97.7% of fold downregulations are higher in wt than the D175A rescue. 72.9% significantly so. i.e., for most genes, the mutant is worse at downregulating than wt.**
+
+```{r, fig.height=3, fig.width=4}
+wt_rescue_interaction = read_tsv("data/wt_vs_mutantRescued_interaction_test.txt")
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+df = as.data.frame(wt_dn_258, nm = "Gene") %>%
+  left_join(
+    wt_rescue_interaction %>% 
+      select(Gene, log2diff, FDR)
+    )
+
+hist(df$log2diff, breaks = 100)
+# summary(df$log2diff)
+
+hist(df$FDR, breaks = 100)
+# summary(df$FDR)
+
+df %>%
+  mutate(
+    direction = case_when(
+      log2diff == 0  ~ "0 or NA log2diff",
+      log2diff <= 0 ~ "-ve log2diff",
+      log2diff >= 0  ~ "+ve log2diff"
+    )
+  ) %>%
+  count(direction) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+df %>%
+  mutate(sig = if_else(FDR <= 0.05, "FDR<=0.05", "ns")) %>%
+  count(sig) %>%
+  mutate(percent = 100*n/sum(n)) %>%
+  knitr::kable(full_width = FALSE)
+
+cleanup_objects()
+```
+
+
+```{r assemble a final wt_up_738 dataset for rob}
+# wt_dn_258 = dea %>% 
+#   filter(condition == "WT", sig == "dn") %>% 
+#   pull(Gene)
+# 
+# tpm_258 = tpm %>%
+#   filter(Gene %in% wt_dn_258) %>%
+#   mutate(
+#     group = case_when(
+#       group == "WT_naive" ~ "wt",
+#       group == "sham_naive" ~ "sham",
+#       group == "TAK1KO_naive" ~ "ko",
+#       group == "TAK1KO_lipid" ~ "lipid",
+#       group == "TAK1KO_TAK1-smRNA" ~ "nat",
+#       group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+#     )
+#   ) %>%
+#   select(Gene, group, rep, treatment, log2tpm) %>%
+#   unite(name, c(group, treatment, rep), sep = "_") %>%
+#   pivot_wider(values_from = "log2tpm", names_from = "name") %>%
+#   select(
+#     Gene,
+#     contains("wt_NS"), contains("wt_IL1B"),
+#     contains("sham_NS"), contains("sham_IL1B"),
+#     contains("ko_NS"), contains("ko_IL1B"),
+#     contains("lipid_NS"), contains("lipid_IL1B"),
+#     contains("nat_NS"), contains("nat_IL1B"),
+#     contains("D175A_NS"), contains("D175A_IL1B")
+#   )
+# 
+# log2fold_tpm_258 = tpm %>%
+#   filter(Gene %in% wt_dn_258, treatment == "IL1B") %>%
+#   mutate(
+#     group = case_when(
+#       group == "WT_naive" ~ "wt",
+#       group == "sham_naive" ~ "sham",
+#       group == "TAK1KO_naive" ~ "ko",
+#       group == "TAK1KO_lipid" ~ "lipid",
+#       group == "TAK1KO_TAK1-smRNA" ~ "nat",
+#       group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+#     )
+#   ) %>%
+#   select(Gene, group, rep, log2fold) %>%
+#   unite(name, c(group, rep), sep = "_") %>%
+#   pivot_wider(values_from = "log2fold", names_from = "name")
+# 
+# dea_258 = dea %>%
+#   filter(Gene %in% wt_dn_258) %>%
+#   mutate(
+#     group = case_when(
+#       group == "WT_naive" ~ "wt",
+#       group == "sham_naive" ~ "sham",
+#       group == "TAK1KO_naive" ~ "ko",
+#       group == "TAK1KO_lipid" ~ "lipid",
+#       group == "TAK1KO_TAK1-smRNA" ~ "nat",
+#       group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+#     )
+#   ) %>%
+#   select(Gene, group, log2fold, FDR) %>%
+#   pivot_longer(cols = c(log2fold, FDR)) %>%
+#   unite(name, c(group, name), sep = "_") %>%
+#   pivot_wider(values_from = "value", names_from = "name")
+# 
+# tak1ko_il1b_interaction = read_tsv("data/KO_IL1B_interaction_test.txt") %>%
+#   filter(Gene %in% wt_dn_258)
+# 
+# wt_up_738_all_data = list(
+#   log2tpm = tpm_258,
+#   log2fold_tpm = log2fold_tpm_258,
+#   dea = dea_258,
+#   ko_il1b_interaction = tak1ko_il1b_interaction
+# )
+# 
+# writexl::write_xlsx(wt_up_738_all_data, "data/wt_dn_258_all_data.xlsx")
+
+```
+
+
+
+
+
