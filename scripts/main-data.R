@@ -19,8 +19,6 @@ dea = read_tsv("data/a549-tak1-ko-dea.txt") %>%
 
 
 
-
-
 mat = tpm %>%
   filter(treatment == "IL1B") %>%
   select(Gene, rep, condition, rescue, log2fold) %>%
@@ -67,11 +65,6 @@ mat_combined = cbind(mat_a, mat_b) %>%
   as.matrix()
 
 rm(mat_a, mat_b)
-
-
-
-
-
 
 
 

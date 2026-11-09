@@ -73,8 +73,8 @@ theme_prismLike = theme_bw() +
     strip.placement = "outside",
     strip.background = element_blank(),
     axis.ticks.length = unit(-0.15, "cm"),
-    axis.ticks.y.right = element_line(),
-    axis.ticks = element_line(color = "black", linewidth = 0.6),
+    axis.text.y.right = element_blank(),
+    axis.ticks = element_line(color = "black", linewidth = 0.3),
     panel.border = element_rect(color = "black", fill = NA, linewidth = 0.6)
   )
 
@@ -125,7 +125,8 @@ for (name in c(
       wt_dn_258 = wt_dn_258,
       set = get(name)
     ) %>% setNames(c("wt_dn_258", name)),
-    show_heatmap = F
+    show_heatmap = F,
+    plotType = "euler"
   )
 }
 
@@ -275,14 +276,17 @@ info = paste0(
   )
 
 
-ggplot(df, aes(x = WT_naive, y = sham_naive)) +
-  geom_point(shape = 21, fill = "white") +
-  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+ggplot(df, aes(y = WT_naive, x = sham_naive)) +
+  geom_point(shape = 21, fill = "white", stroke = 0.3) +
+  geom_abline(
+    slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", lwd = 0.3) +
   theme_prismLike +
-  labs(caption = info) +
+  scale_y_continuous(limits = c(0, -4.2), sec.axis = dup_axis()) +
   scale_x_continuous(limits = c(0, -4.2)) +
-  scale_y_continuous(limits = c(0, -4.2))
+  labs(caption = info)
+
+ggsave("dn_wt_vs_sham.png", h = 1.75, w = 3, dpi = 600)
 
 cleanup_objects()
 ```
@@ -431,14 +435,17 @@ info = paste0(
   )
 
 
-ggplot(df, aes(x = WT_naive, y = TAK1KO_naive)) +
-  geom_point(shape = 21, fill = "white") +
-  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+ggplot(df, aes(y = WT_naive, x = TAK1KO_naive)) +
+  geom_point(shape = 21, fill = "white", stroke = 0.3) +
+  geom_abline(
+    slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", lwd = 0.3) +
   theme_prismLike +
-  labs(caption = info) +
+  scale_y_continuous(limits = c(0, -4.2), sec.axis = dup_axis()) +
   scale_x_continuous(limits = c(0, -4.2)) +
-  scale_y_continuous(limits = c(0, -4.2))
+  labs(caption = info)
+
+ggsave("dn_wt_vs_ko.png", h = 1.75, w = 3, dpi = 600)
 
 cleanup_objects()
 ```
@@ -523,14 +530,17 @@ info = paste0(
   )
 
 
-ggplot(df, aes(x = WT_naive, y = TAK1KO_lipid)) +
-  geom_point(shape = 21, fill = "white") +
-  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+ggplot(df, aes(y = WT_naive, x = TAK1KO_lipid)) +
+  geom_point(shape = 21, fill = "white", stroke = 0.3) +
+  geom_abline(
+    slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", lwd = 0.3) +
   theme_prismLike +
-  labs(caption = info) +
+  scale_y_continuous(limits = c(0, -4.2), sec.axis = dup_axis()) +
   scale_x_continuous(limits = c(0, -4.2)) +
-  scale_y_continuous(limits = c(0, -4.2))
+  labs(caption = info)
+
+ggsave("dn_wt_vs_lipid.png", h = 1.75, w = 3, dpi = 600)
 
 cleanup_objects()
 ```
@@ -692,14 +702,17 @@ info = paste0(
   "; intercept=", round(deming_intercept, 2)
   )
 
-ggplot(df, aes(x = WT_naive, y = `TAK1KO_TAK1-smRNA`)) +
-  geom_point(shape = 21, fill = "white") +
-  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+ggplot(df, aes(y = WT_naive, x = `TAK1KO_TAK1-smRNA`)) +
+  geom_point(shape = 21, fill = "white", stroke = 0.3) +
+  geom_abline(
+    slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", lwd = 0.3) +
   theme_prismLike +
-  labs(caption = info) +
-  scale_y_continuous(limits = c(0, -4.2)) +
-  scale_x_continuous(limits = c(0, -4.2))
+  scale_y_continuous(limits = c(0, -4.2), sec.axis = dup_axis()) +
+  scale_x_continuous(limits = c(0, -4.2)) +
+  labs(caption = info)
+
+ggsave("dn_wt_vs_nat.png", h = 1.75, w = 3, dpi = 600)
 
 cleanup_objects()
 ```
@@ -852,14 +865,17 @@ info = paste0(
   "; intercept=", round(deming_intercept, 2)
   )
 
-ggplot(df, aes(x = WT_naive, y = `TAK1KO_mTAK1-smRNA`)) +
-  geom_point(shape = 21, fill = "white") +
-  geom_abline(slope = deming_slope, intercept = deming_intercept, color = "blue") +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+ggplot(df, aes(y = WT_naive, x = `TAK1KO_mTAK1-smRNA`)) +
+  geom_point(shape = 21, fill = "white", stroke = 0.3) +
+  geom_abline(
+    slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", lwd = 0.3) +
   theme_prismLike +
-  labs(caption = info) +
-  scale_y_continuous(limits = c(0, -4.2)) +
-  scale_x_continuous(limits = c(0, -4.2))
+  scale_y_continuous(limits = c(0, -4.2), sec.axis = dup_axis()) +
+  scale_x_continuous(limits = c(0, -4.2)) +
+  labs(caption = info)
+
+ggsave("dn_wt_vs_D175A.png", h = 1.75, w = 3, dpi = 600)
 
 cleanup_objects()
 ```
