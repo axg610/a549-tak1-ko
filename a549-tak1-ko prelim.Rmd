@@ -314,71 +314,87 @@ ggplot(
   aes(x = group, y = log2fold)
 ) +
   geom_violin(
-    scale = "width", lwd = 0.3, color = "black", fill = "firebrick2"
+    scale = "width", lwd = 0.2, color = "black", fill = "firebrick2"
     ) +
   geom_boxplot(
-    width = 0.3, outliers = F, lwd = 0.3, color = "black", fill = "firebrick2"
+    width = 0.3, outliers = F, lwd = 0.2, color = "black", fill = "firebrick2"
     ) +
   # geom_jitter(width = 0.3, alpha = 0.1, size = 0.8) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
   ) +
   theme_prismLike +
-  theme(aspect.ratio = 0.5) +
+  theme(aspect.ratio = 0.67) +
   scale_x_discrete(
     labels = c("wt", "sham", "KO", "lipid", "nat", "D175A")
   ) +
   scale_y_continuous(
-    expand = expansion(mult = c(0, 0.25)),
-    sec.axis = dup_axis()
+    # expand = expansion(mult = c(0, 0.25)),
+    sec.axis = dup_axis(),
+    limits = c(-1, 15),
+    breaks = c(0, 5, 10)
     )
 
-ggsave("violin 738 upreg.png", h = 2, w = 3, dpi = 600)
+# ggsave("violin 738 upreg.png", h = 1.5, w = 3, dpi = 600)
 
-# df = df %>%
-#   mutate(
-#     group = case_when(
-#       group == "WT_naive" ~ "wt",
-#       group == "sham_naive" ~ "sham",
-#       group == "TAK1KO_naive" ~ "ko",
-#       group == "TAK1KO_lipid" ~ "lipid",
-#       group == "TAK1KO_TAK1-smRNA" ~ "nat",
-#       group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
-#     )
-#   )
-# 
-# violin_tukey = aov(log2fold~group, df) %>%
-#   TukeyHSD() %>%
-#   .$group %>%
-#   as.data.frame() %>%
-#   rownames_to_column("comparison") %>%
-#   mutate(sig = case_when(
-#     `p adj` <= 0.001                    ~ "***",
-#     `p adj`  <= 0.01 & `p adj`  > 0.001    ~ "**",
-#     `p adj`  <= 0.05 & `p adj`  > 0.01     ~ "*",
-#     `p adj`  > 0.05                     ~ "ns")
-#   ) %>%
-#   arrange(comparison)
-# 
-# violin_df = df %>%
-#   pivot_wider(names_from = "group", values_from = "log2fold")
-# 
-# writexl::write_xlsx(
-#   list(
-#     "log2fold_tpm" = violin_df,
-#     "tukey" = violin_tukey
-#   ),
-#   "data/wt_up_738-folds-allConditions.xlsx"
-#   )
+stats_df = df %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  ) %>%
+  mutate(group = factor(group, levels = unique(group)))
+
+violin_df = stats_df %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+violin_tukey = aov(log2fold~group, stats_df) %>%
+  TukeyHSD() %>%
+  .$group %>%
+  as.data.frame() %>%
+  rownames_to_column("comparison") %>%
+  mutate(sig = case_when(
+    `p adj` <= 0.001                    ~ "***",
+    `p adj`  <= 0.01 & `p adj`  > 0.001    ~ "**",
+    `p adj`  <= 0.05 & `p adj`  > 0.01     ~ "*",
+    `p adj`  > 0.05                     ~ "ns")
+  ) %>%
+  arrange(comparison)
+
+violin_summary = stats_df %>%
+  group_by(group) %>%
+  summarise(median = median(log2fold), .groups = "drop") %>%
+  mutate(
+    delta_wt = median - median[group == "wt"],
+    delta_ko = median - median[group == "ko"]
+  ) %>%
+  arrange(group) %>%
+  t() %>% 
+  as.data.frame() %>%
+  rownames_to_column("group")
+
+
+writexl::write_xlsx(
+  list(
+    "log2fold_tpm" = violin_df,
+    "tukey" = violin_tukey,
+    "summary" = violin_summary
+  ),
+  "data/wt_up_738-folds-allConditions.xlsx"
+  )
 
 cleanup_objects()
 ```
 
-
 ```{r violin on wt-downreg DEGs in each condition, fig.width=3, fig.height=2}
 
 wt_dn_258 = dea %>% 
-  filter(condition %in% c("WT", "sham"), sig == "dn") %>% 
+  filter(condition %in% c("WT"), sig == "dn") %>% 
   pull(Gene)
 
 df = tpm %>%
@@ -398,62 +414,78 @@ ggplot(
   aes(x = group, y = log2fold)
 ) +
   geom_violin(
-    scale = "width", lwd = 0.3, color = "black", fill = "steelblue2"
+    scale = "width", lwd = 0.2, color = "black", fill = "steelblue2"
     ) +
   geom_boxplot(
-    width = 0.3, outliers = F, lwd = 0.3, color = "black", fill = "steelblue2"
+    width = 0.3, outliers = F, lwd = 0.2, color = "black", fill = "steelblue2"
     ) +
   # geom_jitter(width = 0.3, alpha = 0.1, size = 0.8) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
   ) +
   theme_prismLike +
-  theme(aspect.ratio = 0.5) +
+  theme(aspect.ratio = 0.67) +
   scale_x_discrete(
     labels = c("wt", "sham", "KO", "lipid", "nat", "D175A")
   ) +
   scale_y_continuous(
-    expand = expansion(mult = c(0.25, 0)),
-    sec.axis = dup_axis()
+    # expand = expansion(mult = c(0, 0.25)),
+    sec.axis = dup_axis(),
+    limits = c(-15, 1),
+    breaks = c(0, -5, 10)
     )
 
-ggsave("violin 258 downreg.png", h = 2, w = 3, dpi = 600)
+# ggsave("violin 258 downreg.png", h = 1.5, w = 3, dpi = 600)
 
-# df = df %>%
-#   mutate(
-#     group = case_when(
-#       group == "WT_naive" ~ "wt",
-#       group == "sham_naive" ~ "sham",
-#       group == "TAK1KO_naive" ~ "ko",
-#       group == "TAK1KO_lipid" ~ "lipid",
-#       group == "TAK1KO_TAK1-smRNA" ~ "nat",
-#       group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
-#     )
-#   )
-# 
-# violin_tukey = aov(log2fold~group, df) %>%
-#   TukeyHSD() %>%
-#   .$group %>%
-#   as.data.frame() %>%
-#   rownames_to_column("comparison") %>%
-#   mutate(sig = case_when(
-#     `p adj` <= 0.001                    ~ "***",
-#     `p adj`  <= 0.01 & `p adj`  > 0.001    ~ "**",
-#     `p adj`  <= 0.05 & `p adj`  > 0.01     ~ "*",
-#     `p adj`  > 0.05                     ~ "ns")
-#   ) %>%
-#   arrange(comparison)
-# 
-# violin_df = df %>%
-#   pivot_wider(names_from = "group", values_from = "log2fold")
-# 
-# writexl::write_xlsx(
-#   list(
-#     "log2fold_tpm" = violin_df,
-#     "tukey" = violin_tukey
-#   ),
-#   "data/wt_down-258-folds-allConditions.xlsx"
-#   )
+stats_df = df %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  ) %>%
+  mutate(group = factor(group, levels = unique(group)))
+
+violin_df = stats_df %>%
+  pivot_wider(names_from = "group", values_from = "log2fold")
+
+violin_tukey = aov(log2fold~group, stats_df) %>%
+  TukeyHSD() %>%
+  .$group %>%
+  as.data.frame() %>%
+  rownames_to_column("comparison") %>%
+  mutate(sig = case_when(
+    `p adj` <= 0.001                    ~ "***",
+    `p adj`  <= 0.01 & `p adj`  > 0.001    ~ "**",
+    `p adj`  <= 0.05 & `p adj`  > 0.01     ~ "*",
+    `p adj`  > 0.05                     ~ "ns")
+  ) %>%
+  arrange(comparison)
+
+violin_summary = stats_df %>%
+  group_by(group) %>%
+  summarise(median = median(log2fold), .groups = "drop") %>%
+  mutate(
+    delta_wt = median - median[group == "wt"],
+    delta_ko = median - median[group == "ko"]
+  ) %>%
+  arrange(group) %>%
+  t() %>%
+  as.data.frame() %>%
+  rownames_to_column("group")
+
+writexl::write_xlsx(
+  list(
+    "log2fold_tpm" = violin_df,
+    "tukey" = violin_tukey,
+    "summary" = violin_summary
+  ),
+  "data/wt_down-258-folds-allConditions.xlsx"
+  )
 
 cleanup_objects()
 ```

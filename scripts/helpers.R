@@ -79,8 +79,9 @@ generic_l2f_heatmap_colors <- function(
       "steelblue4", "steelblue2", "white", "firebrick2", "firebrick4"
     ),
     scaleType = c(
-      "robust",      # compresses around -0.5 to 0.5 range
-      "symmetric"    # symmetric range around zero
+      "robust",       # compresses around -0.5 to 0.5 range (for log scales)
+      "symmetric",    # symmetric range around zero (for log scales)
+      "one-sided"     # from zero to max (for linear scales)    
     ),
     clipFactor = 0.98
 ) {
@@ -121,7 +122,19 @@ generic_l2f_heatmap_colors <- function(
         -maxVal, 
         maxVal, 
         length = 200
-        ),
+      ),
+      colorRampPalette(colorscale)(200)
+    )
+  } else if (scaleType == "one-sided") {
+    
+    maxVal <- quantile(mat, clipFactor)
+    
+    colors <- circlize::colorRamp2(
+      seq(
+        0,
+        maxVal,
+        length = 200
+      ),
       colorRampPalette(colorscale)(200)
     )
   }

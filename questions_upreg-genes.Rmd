@@ -225,7 +225,7 @@ info = paste0(
   )
 
 
-ggplot(df, aes(y = WT_naive, x = sham_naive)) +
+ggplot(df, aes(x = WT_naive, y = sham_naive)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
@@ -414,7 +414,7 @@ info = paste0(
   )
 
 
-ggplot(df, aes(y = WT_naive, x = TAK1KO_naive)) +
+ggplot(df, aes(x = WT_naive, y = TAK1KO_naive)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
@@ -426,36 +426,96 @@ ggplot(df, aes(y = WT_naive, x = TAK1KO_naive)) +
 
 ggsave("up_wt_vs_ko.png", h = 1.75, w = 3, dpi = 600)
 
-# ===== pull 68 overlaps =====
+```
+
+
+Plot 68 upreg genes in TAK1 KO and WT
+
+```{r}
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
 
 intersect_68 = intersect(wt_up_738, ko_up_71)
 
-paste(intersect_68, collapse = ", ") %>% clipr::write_clip()
+# paste(intersect_68, collapse = ", ") %>% clipr::write_clip()
+# 
+# tak1ko_il1b_interaction = read_tsv("data/KO_IL1B_interaction_test.txt")
+# 
+# out = mat[intersect_68, ] %>%
+#   as.data.frame() %>%
+#   rownames_to_column("Gene") %>%
+#   left_join(tak1ko_il1b_interaction) %>%
+#   relocate(Gene, contrast, log2diff, FDR, .before = 1)
+# 
+# intersect_68_ordered = out %>% arrange(log2diff) %>% pull(Gene)
+# 
+# mat[intersect_68_ordered, ] %>%
+#   Heatmap(
+#     cluster_columns = F,
+#     cluster_rows = F,
+#     column_split = myColsplits,
+#     col = myColors,
+#     row_names_gp = gpar(cex = 0.7)
+#   )
+# 
+# writexl::write_xlsx(out, "data/wt-ko-intersect68-matrix.xlsx")
 
-tak1ko_il1b_interaction = read_tsv("data/KO_IL1B_interaction_test.txt")
+df = dea %>%
+  filter(Gene %in% intersect_68) %>%
+  select(Gene, group, log2fold) %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    ),
+    group = factor(group, levels = unique(group))
+  ) %>%
+  pivot_wider(values_from = "log2fold", names_from = "group") %>%
+  mutate(
+    sham = sham/wt,
+    ko = ko/wt,
+    lipid = lipid/wt,
+    nat = nat/wt,
+    D175A = D175A/wt,
+    
+    wt = wt/wt
+  ) %>%
+  arrange(desc(ko)) %>%
+  column_to_rownames("Gene") %>%
+  as.matrix()
 
+mycolors = generic_l2f_heatmap_colors(
+  c(0, 1),
+  colorscale = c("white", "firebrick2", "firebrick4"),
+  scaleType = "one-sided",
+  clipFactor = 1
+)
 
-out = mat[intersect_68, ] %>%
-  as.data.frame() %>%
-  rownames_to_column("Gene") %>%
-  left_join(tak1ko_il1b_interaction) %>%
-  relocate(Gene, contrast, log2diff, FDR, .before = 1)
-
-intersect_68_ordered = out %>% arrange(log2diff) %>% pull(Gene)
-
-mat[intersect_68_ordered, ] %>%
-  Heatmap(
-    cluster_columns = F,
-    cluster_rows = F,
-    column_split = myColsplits,
-    col = myColors,
-    row_names_gp = gpar(cex = 0.7)
-  )
-
-writexl::write_xlsx(out, "data/wt-ko-intersect68-matrix.xlsx")
+png("ko_up_68_pct_wt.png", h = 7, w = 5, units = "in", res = 600)
+Heatmap(
+  df,
+  cluster_rows = F,
+  cluster_columns = F,
+  col = mycolors,
+  row_names_gp = gpar(cex = 0.5),
+  name = "% WT"
+)
+dev.off()
 
 cleanup_objects()
 ```
+
+
+
 
 Q2a.1: effect of just going with the P-value (i.e., drop fold criteria?) Does it collapse into a single group.
 
@@ -685,7 +745,7 @@ info = paste0(
   )
 
 
-ggplot(df, aes(y = WT_naive, x = TAK1KO_lipid)) +
+ggplot(df, aes(x = WT_naive, y = TAK1KO_lipid)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
@@ -741,6 +801,9 @@ plot_gene_sets(
   show_heatmap = F
 )
 ```
+
+
+
 
 
 
@@ -972,7 +1035,7 @@ info = paste0(
   )
 
 
-ggplot(df, aes(y = WT_naive, x = `TAK1KO_TAK1-smRNA`)) +
+ggplot(df, aes(x = WT_naive, y = `TAK1KO_TAK1-smRNA`)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
@@ -1348,7 +1411,7 @@ info = paste0(
   )
 
 
-ggplot(df, aes(y = WT_naive, x = `TAK1KO_mTAK1-smRNA`)) +
+ggplot(df, aes(x = WT_naive, y = `TAK1KO_mTAK1-smRNA`)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +

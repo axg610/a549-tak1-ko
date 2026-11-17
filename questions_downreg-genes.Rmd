@@ -276,7 +276,7 @@ info = paste0(
   )
 
 
-ggplot(df, aes(y = WT_naive, x = sham_naive)) +
+ggplot(df, aes(x = WT_naive, y = sham_naive)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
@@ -435,7 +435,7 @@ info = paste0(
   )
 
 
-ggplot(df, aes(y = WT_naive, x = TAK1KO_naive)) +
+ggplot(df, aes(x = WT_naive, y = TAK1KO_naive)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
@@ -530,7 +530,7 @@ info = paste0(
   )
 
 
-ggplot(df, aes(y = WT_naive, x = TAK1KO_lipid)) +
+ggplot(df, aes(x = WT_naive, y = TAK1KO_lipid)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
@@ -702,7 +702,7 @@ info = paste0(
   "; intercept=", round(deming_intercept, 2)
   )
 
-ggplot(df, aes(y = WT_naive, x = `TAK1KO_TAK1-smRNA`)) +
+ggplot(df, aes(x = WT_naive, y = `TAK1KO_TAK1-smRNA`)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
@@ -865,7 +865,7 @@ info = paste0(
   "; intercept=", round(deming_intercept, 2)
   )
 
-ggplot(df, aes(y = WT_naive, x = `TAK1KO_mTAK1-smRNA`)) +
+ggplot(df, aes(x = WT_naive, y = `TAK1KO_mTAK1-smRNA`)) +
   geom_point(shape = 21, fill = "white", stroke = 0.3) +
   geom_abline(
     slope = deming_slope, intercept = deming_intercept, color = "blue", lwd = 0.3) +
