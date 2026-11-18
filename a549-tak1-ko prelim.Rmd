@@ -12,7 +12,7 @@ source("scripts/helpers.R")
 # a prism-like ggplot2 theme
 
 theme_prismLike = theme_bw() +
-    theme(
+  theme(
     aspect.ratio = 1,
     panel.grid = element_blank(),
     strip.placement = "outside",
@@ -91,6 +91,10 @@ theme_prismLike = theme_bw() +
 # 
 # saveRDS(hm, "data/a549-tak1-ko-prelim-heatmap.rds")
 ```
+
+
+
+
 
 ```{r heatmap of 1304 il1b reg genes, fig.height=7, fig.width=5}
 goi_up = dea %>%
@@ -175,7 +179,7 @@ dn_hm = Heatmap(
 png(
   "heatmap of 1304 il1b-reg DEGs.png", 
   width = 5, height = 6, units = "in", res = 600
-  )
+)
 
 up_hm %v% dn_hm
 
@@ -196,7 +200,7 @@ df = dea %>%
     label = n,
     n = if_else(sig == "dn", -n, n),
     text_offset = if_else(sig == "dn", 1.3, -0.3)
-    )
+  )
 
 ggplot(
   df,
@@ -214,11 +218,11 @@ ggplot(
     breaks = c(-400, 0, 400, 800),
     labels = c(-400, 0, 400, 800),
     sec.axis = dup_axis()
-    ) +
+  ) +
   scale_x_discrete(
     labels = c("wt", "sham", "KO", "KO+lipid", "nat", "D175A"),
     expand = expansion(mult = 0.15)
-    ) +
+  ) +
   labs(y = "DEG count", x = NULL, fill = NULL) +
   scale_fill_manual(
     values = c("steelblue2", "firebrick2")
@@ -255,7 +259,7 @@ ggplot(
         "TAK1KO_mTAK1-smRNA" = "KO+D175A"
       )
     )
-    ) +
+  ) +
   geom_point(
     aes(fill = sig),
     size = 0.8,
@@ -268,7 +272,7 @@ ggplot(
   theme_prismLike +
   theme(
     legend.position = "none"
-    ) +
+  ) +
   scale_fill_manual(
     values = c("up" = "firebrick1", "ns" = "grey", "dn" = "steelblue1")
   ) +
@@ -277,7 +281,7 @@ ggplot(
     limits = c(0, 350),
     breaks = c(0, 100, 200, 300),
     sec.axis = dup_axis()
-    ) +
+  ) +
   scale_x_continuous(
     expand = expansion(mult = 0.2),
     breaks = c(-5, 0, 5, 10)
@@ -292,7 +296,13 @@ df %>%
 ```
 
 
-```{r violin on wt-upreg DEGs in each condition, fig.width=3, fig.height=2}
+
+
+
+```{r violin plots, fig.width=3, fig.height=2}
+
+# ===== 936 wt-upreg genes =====
+
 wt_up_738 = dea %>% 
   filter(condition == "WT", sig == "up") %>% 
   pull(Gene)
@@ -304,10 +314,10 @@ df = tpm %>%
   group_by(Gene, group) %>%
   summarize(log2fold = mean(log2fold), .groups = "drop")
 
-median = df %>%
-  filter(Gene %in% wt_up_738, group == "WT_naive") %>%
-  pull(log2fold) %>%
-  median()
+# median = df %>%
+#   filter(Gene %in% wt_up_738, group == "WT_naive") %>%
+#   pull(log2fold) %>%
+#   median()
 
 ggplot(
   df,
@@ -315,10 +325,10 @@ ggplot(
 ) +
   geom_violin(
     scale = "width", lwd = 0.2, color = "black", fill = "firebrick2"
-    ) +
+  ) +
   geom_boxplot(
     width = 0.3, outliers = F, lwd = 0.2, color = "black", fill = "firebrick2"
-    ) +
+  ) +
   # geom_jitter(width = 0.3, alpha = 0.1, size = 0.8) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
@@ -333,65 +343,11 @@ ggplot(
     sec.axis = dup_axis(),
     limits = c(-1, 15),
     breaks = c(0, 5, 10)
-    )
+  )
 
 # ggsave("violin 738 upreg.png", h = 1.5, w = 3, dpi = 600)
 
-stats_df = df %>%
-  mutate(
-    group = case_when(
-      group == "WT_naive" ~ "wt",
-      group == "sham_naive" ~ "sham",
-      group == "TAK1KO_naive" ~ "ko",
-      group == "TAK1KO_lipid" ~ "lipid",
-      group == "TAK1KO_TAK1-smRNA" ~ "nat",
-      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
-    )
-  ) %>%
-  mutate(group = factor(group, levels = unique(group)))
-
-violin_df = stats_df %>%
-  pivot_wider(names_from = "group", values_from = "log2fold")
-
-violin_tukey = aov(log2fold~group, stats_df) %>%
-  TukeyHSD() %>%
-  .$group %>%
-  as.data.frame() %>%
-  rownames_to_column("comparison") %>%
-  mutate(sig = case_when(
-    `p adj` <= 0.001                    ~ "***",
-    `p adj`  <= 0.01 & `p adj`  > 0.001    ~ "**",
-    `p adj`  <= 0.05 & `p adj`  > 0.01     ~ "*",
-    `p adj`  > 0.05                     ~ "ns")
-  ) %>%
-  arrange(comparison)
-
-violin_summary = stats_df %>%
-  group_by(group) %>%
-  summarise(median = median(log2fold), .groups = "drop") %>%
-  mutate(
-    delta_wt = median - median[group == "wt"],
-    delta_ko = median - median[group == "ko"]
-  ) %>%
-  arrange(group) %>%
-  t() %>% 
-  as.data.frame() %>%
-  rownames_to_column("group")
-
-
-writexl::write_xlsx(
-  list(
-    "log2fold_tpm" = violin_df,
-    "tukey" = violin_tukey,
-    "summary" = violin_summary
-  ),
-  "data/wt_up_738-folds-allConditions.xlsx"
-  )
-
-cleanup_objects()
-```
-
-```{r violin on wt-downreg DEGs in each condition, fig.width=3, fig.height=2}
+# ===== 256 wt-downreg genes =====
 
 wt_dn_258 = dea %>% 
   filter(condition %in% c("WT"), sig == "dn") %>% 
@@ -404,10 +360,10 @@ df = tpm %>%
   group_by(Gene, group) %>%
   summarize(log2fold = mean(log2fold), .groups = "drop")
 
-median = df %>%
-  filter(Gene %in% wt_dn_258, group == "WT_naive") %>%
-  pull(log2fold) %>%
-  median()
+# median = df %>%
+#   filter(Gene %in% wt_dn_258, group == "WT_naive") %>%
+#   pull(log2fold) %>%
+#   median()
 
 ggplot(
   df,
@@ -415,10 +371,10 @@ ggplot(
 ) +
   geom_violin(
     scale = "width", lwd = 0.2, color = "black", fill = "steelblue2"
-    ) +
+  ) +
   geom_boxplot(
     width = 0.3, outliers = F, lwd = 0.2, color = "black", fill = "steelblue2"
-    ) +
+  ) +
   # geom_jitter(width = 0.3, alpha = 0.1, size = 0.8) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
@@ -433,63 +389,163 @@ ggplot(
     sec.axis = dup_axis(),
     limits = c(-15, 1),
     breaks = c(0, -5, 10)
-    )
+  )
 
 # ggsave("violin 258 downreg.png", h = 1.5, w = 3, dpi = 600)
 
-stats_df = df %>%
-  mutate(
-    group = case_when(
-      group == "WT_naive" ~ "wt",
-      group == "sham_naive" ~ "sham",
-      group == "TAK1KO_naive" ~ "ko",
-      group == "TAK1KO_lipid" ~ "lipid",
-      group == "TAK1KO_TAK1-smRNA" ~ "nat",
-      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
-    )
-  ) %>%
-  mutate(group = factor(group, levels = unique(group)))
+```
 
-violin_df = stats_df %>%
-  pivot_wider(names_from = "group", values_from = "log2fold")
+```{r pull stats for violin plots}
 
-violin_tukey = aov(log2fold~group, stats_df) %>%
-  TukeyHSD() %>%
-  .$group %>%
-  as.data.frame() %>%
-  rownames_to_column("comparison") %>%
-  mutate(sig = case_when(
-    `p adj` <= 0.001                    ~ "***",
-    `p adj`  <= 0.01 & `p adj`  > 0.001    ~ "**",
-    `p adj`  <= 0.05 & `p adj`  > 0.01     ~ "*",
-    `p adj`  > 0.05                     ~ "ns")
-  ) %>%
-  arrange(comparison)
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
 
-violin_summary = stats_df %>%
-  group_by(group) %>%
-  summarise(median = median(log2fold), .groups = "drop") %>%
-  mutate(
-    delta_wt = median - median[group == "wt"],
-    delta_ko = median - median[group == "ko"]
-  ) %>%
-  arrange(group) %>%
-  t() %>%
-  as.data.frame() %>%
-  rownames_to_column("group")
+wt_dn_258 = dea %>% 
+  filter(condition %in% c("WT"), sig == "dn") %>% 
+  pull(Gene)
 
-writexl::write_xlsx(
-  list(
-    "log2fold_tpm" = violin_df,
-    "tukey" = violin_tukey,
-    "summary" = violin_summary
-  ),
-  "data/wt_down-258-folds-allConditions.xlsx"
+levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+
+
+violin_stats = list()
+
+for(nm in list("wt_up_738", "wt_dn_258")){
+  
+  genes = get(nm)
+  
+  # get dataframe for genes
+  df = tpm %>%
+    filter(Gene %in% genes, treatment == "IL1B") %>%
+    select(Gene, group, log2fold) %>%
+    group_by(Gene, group) %>%
+    summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+    mutate(
+      group = case_when(
+        group == "WT_naive" ~ "wt",
+        group == "sham_naive" ~ "sham",
+        group == "TAK1KO_naive" ~ "ko",
+        group == "TAK1KO_lipid" ~ "lipid",
+        group == "TAK1KO_TAK1-smRNA" ~ "nat",
+        group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+      )
+    ) %>%
+    mutate(group = factor(group, levels = levels)) %>%
+    arrange(Gene, group)
+  
+  # mean log2fold, median log2fold, and any other stats
+  summary = df %>%
+    group_by(group) %>%
+    summarize(
+      median = median(log2fold), 
+      mean = mean(log2fold),
+      .groups = "drop"
+      )
+  
+  # run tukey's
+  tukey = aov(log2fold~group, df) %>%
+    TukeyHSD() %>%
+    .$group %>%
+    as.data.frame() %>%
+    rownames_to_column("comparison")
+  
+  # pull p-value matrix
+  pairwise_p = tukey %>%
+    separate(comparison, c("x", "y"), sep = "-") %>%
+    select(x, y, p = `p adj`) %>%
+    bind_rows(
+      tibble(
+        x = c("wt", "sham", "ko", "lipid", "nat", "D175A"),
+        y = c("wt", "sham", "ko", "lipid", "nat", "D175A"),
+        p = 1
+      )
+    ) %>%
+    mutate(
+      x = factor(x, levels = levels),
+      y = factor(y, levels = levels)
+    ) %>%
+    arrange(x, y) %>%
+    pivot_wider(names_from = "y", values_from = "p") %>%
+    column_to_rownames("x") %>%
+    t() %>%
+    as.data.frame() %>%
+    rownames_to_column("x")
+  
+  # pull mean diff matrix
+  pairwise_meandiff = tukey %>%
+    separate(comparison, c("x", "y"), sep = "-") %>%
+    select(x, y, mean_diff = diff) %>%
+    bind_rows(
+      tibble(
+        x = c("wt", "sham", "ko", "lipid", "nat", "D175A"),
+        y = c("wt", "sham", "ko", "lipid", "nat", "D175A"),
+        mean_diff = 0
+      )
+    ) %>%
+    mutate(
+      x = factor(x, levels = levels),
+      y = factor(y, levels = levels)
+    ) %>%
+    arrange(x, y) %>%
+    pivot_wider(names_from = "y", values_from = "mean_diff") %>%
+    column_to_rownames("x") %>%
+    t() %>%
+    as.data.frame() %>%
+    rownames_to_column("x")
+  
+  # pull median diff matrix
+  
+  medianDiffs = combn(levels, 2, simplify = FALSE) %>%
+    map_dfr(\(p) tibble(x = p[1], y = p[2])) %>%
+    bind_rows(tibble(x = levels, y = levels)) %>%
+    left_join(
+      summary %>% select(x = group, x_med = median),
+      by = "x"
+    ) %>%
+    left_join(
+      summary %>% select(y = group, y_med = median),
+      by = "y"
+    ) %>%
+    mutate(median_diff = y_med - x_med) %>%
+    select(x, y, median_diff)
+  
+  
+  pairwise_mediandiff = medianDiffs %>%
+    mutate(
+      x = factor(x, levels = levels),
+      y = factor(y, levels = levels)
+    ) %>% 
+    arrange(x, y) %>%
+    pivot_wider(names_from = "y", values_from = "median_diff")
+  
+  out = setNames(
+    list(
+      pairwise_p, 
+      pairwise_meandiff, 
+      pairwise_mediandiff,
+      tukey,
+      medianDiffs,
+      summary
+      ),
+    paste0(nm, c(
+      "_p", 
+      "_meanDiff", 
+      "_medianDiff", 
+      "raw-tukey", 
+      "raw-medianDiff",
+      "summary"
+      ))
   )
+  
+  violin_stats = c(violin_stats, out)
+  
+  
+}
+
+writexl::write_xlsx(violin_stats, "violin_stats.xlsx")
 
 cleanup_objects()
 ```
-
 
 
 
@@ -511,7 +567,7 @@ pc_mat <- tpm %>%
   filter(
     Gene %in% goi,
     treatment %in% c("NS", "IL1B")
-    ) %>%
+  ) %>%
   mutate(sample = paste0(condition, "_", rescue, "_", treatment, "_", rep)) %>%
   select(Gene, sample, log2tpm) %>%
   pivot_wider(names_from = sample, values_from = log2tpm) %>%
@@ -596,13 +652,13 @@ tukey = pc_distance %>%
   rownames_to_column("comparison") %>%
   select(comparison, pval = `p adj`) %>%
   mutate(
-  sig = case_when(
-    pval <= 0.001  ~ "***",
-    pval <= 0.01   ~ "**",
-    pval <= 0.05   ~ "*",
-    TRUE           ~ "ns"
+    sig = case_when(
+      pval <= 0.001  ~ "***",
+      pval <= 0.01   ~ "**",
+      pval <= 0.05   ~ "*",
+      TRUE           ~ "ns"
+    )
   )
-)
 
 # PCA loadings for each gene
 pca_loadings <- as.data.frame(pca$rotation) %>%
@@ -634,13 +690,13 @@ ggplot(
   # theme_bw() +
   theme(
     aspect.ratio = 1,
-  #   panel.grid.minor = element_blank(),
-  #   panel.border = element_rect(color = "black", fill = NA),
-  #   axis.line = element_line(color = "black"),
-  #   axis.ticks = element_line(color = "black"),
-  #   text = element_text(size = 12, color = "black"),
-  #   legend.text = element_text(color = "black"),
-  #   legend.title = element_text(color = "black")
+    #   panel.grid.minor = element_blank(),
+    #   panel.border = element_rect(color = "black", fill = NA),
+    #   axis.line = element_line(color = "black"),
+    #   axis.ticks = element_line(color = "black"),
+    #   text = element_text(size = 12, color = "black"),
+    #   legend.text = element_text(color = "black"),
+    #   legend.title = element_text(color = "black")
   ) +
   labs(
     color = "treatment",
@@ -801,7 +857,7 @@ ggplot(
     axis.ticks = element_line(color = "black", linewidth = 0.5),
     axis.text.x = element_blank(),
     aspect.ratio = 0.25
-    )
+  )
 ```
 
 ```{r write out pca info for rob}
