@@ -73,6 +73,11 @@ for(l in c("up_mat_ordered", "dn_mat_ordered")){
   out[[name]] <- df
 }
 
+names(out) <- c(
+  "936 IL1B-upreg genes (log2fold)",
+  "368 IL1B-down genes (log2fold)"
+)
+
 write_xlsx(out, "table1-1304-sig-genes.xlsx")
 
 cleanup_objects()
@@ -149,7 +154,7 @@ cleanup_objects(c(readLines("scripts/cleanup_ignore.txt"), "gene_lists"))
 
 ```
 
-```{r s2: explore l2f and FDR values by venn group}
+```{r s2: explore DEA results by venn group}
 df = dea %>%
   mutate(
     group = case_when(
@@ -216,5 +221,58 @@ for(dir in c("up", "dn")){
 }
 
 write_xlsx(out, "table2-explore-venns.xlsx")
+
+cleanup_objects()
+```
+
+
+
+```{r s3: compare mean l2f values for 738 and 258 wt-reg genes}
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+out = list()
+
+for(l in c("wt_up_738", "wt_dn_258")){
+  
+  goi = get(l)
+  
+  df = tpm %>%
+    filter(
+      Gene %in% goi,
+      treatment == "IL1B"
+    ) %>%
+    mutate(
+      group = case_when(
+        group == "WT_naive" ~ "wt",
+        group == "sham_naive" ~ "sham",
+        group == "TAK1KO_naive" ~ "ko",
+        group == "TAK1KO_lipid" ~ "lipid",
+        group == "TAK1KO_TAK1-smRNA" ~ "nat",
+        group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+      )
+    ) %>%
+    mutate(group = factor(
+      group, 
+      levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+    )) %>%
+    select(Gene, group, log2fold) %>%
+    group_by(Gene, group) %>%
+    summarize(log2fold = mean(log2fold), .groups = "keep") %>%
+    pivot_wider(names_from = "group", values_from = "log2fold")
+  
+  out[[l]] <- df
+  
+}
+
+names(out) <- c("738 wt-upreg (avg log2fold)", "258 wt-dnreg (avg log2fold)")
+
+write_xlsx(out, "table3-compare-wt-reg-genes.xlsx")
 ```
 
