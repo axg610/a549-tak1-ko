@@ -80,3 +80,141 @@ cleanup_objects()
 
 
 
+```{r define gene lists for venn work}
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+sham_up_751 = dea %>% 
+  filter(condition == "sham", sig == "up") %>% 
+  pull(Gene)
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+lipid_up_68 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "lipid", sig == "up") %>% 
+  pull(Gene)
+
+rescue_up_540 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+mutant_up_139 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+wt_dn_258 = dea %>% 
+  filter(condition == "WT", sig == "dn") %>% 
+  pull(Gene)
+
+sham_dn_262 = dea %>% 
+  filter(condition == "sham", sig == "dn") %>% 
+  pull(Gene)
+
+ko_dn_1 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "dn") %>% 
+  pull(Gene)
+
+lipid_dn_0 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "lipid", sig == "dn") %>% 
+  pull(Gene)
+
+rescue_dn_72 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "dn") %>% 
+  pull(Gene)
+
+mutant_dn_13 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "mTAK1-smRNA", sig == "dn") %>% 
+  pull(Gene)
+
+gene_lists = list(
+  wt_up_738 = wt_up_738,
+  sham_up_751 = sham_up_751,
+  ko_up_71 = ko_up_71,
+  lipid_up_68 = lipid_up_68,
+  rescue_up_540 = rescue_up_540,
+  mutant_up_139 = mutant_up_139,
+  wt_dn_258 = wt_dn_258,
+  sham_dn_262 = sham_dn_262,
+  ko_dn_1 = ko_dn_1,
+  lipid_dn_0 = lipid_dn_0,
+  rescue_dn_72 = rescue_dn_72,
+  mutant_dn_13 = mutant_dn_13
+)
+
+cleanup_objects(c(readLines("scripts/cleanup_ignore.txt"), "gene_lists"))
+
+```
+
+```{r s2: explore l2f and FDR values by venn group}
+df = dea %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  ) %>%
+  mutate(group = factor(
+    group, 
+    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+    )) %>%
+  select(Gene, group, log2fold, FDR, sig)
+
+out = list()
+
+for(dir in c("up", "dn")){
+  for(grp in c("sham", "ko", "lipid", "nat", "D175A")){
+    
+    pair = c("wt", grp)
+    
+    if (dir == "dn" & grp == "lipid"){next}
+    
+    name = paste0(dir, "reg - ", pair[1], " vs ", pair[2])
+    
+    # group assignments
+    # which we have to regenerate because we never saved them...
+    
+    internal.logicalMatrix = df %>%
+      filter(sig == dir, group %in% pair) %>%
+      distinct(Gene, group, sig) %>%
+      mutate(present = TRUE) %>%
+      pivot_wider(
+        names_from = group,
+        values_from = present,
+        values_fill = FALSE
+      ) %>%
+      select(Gene, wt, contains(grp)) %>%
+      mutate(
+        venn_group = case_when(
+          .data[[pair[1]]] & !.data[[pair[2]]] ~ paste(pair[1], "only"),
+          !.data[[pair[1]]] & .data[[pair[2]]] ~ paste(pair[2], "only"),
+          .data[[pair[1]]] & .data[[pair[2]]] ~ paste(pair, collapse = " & ")
+        )
+      )
+    
+    internal.data = df %>%
+      filter(group %in% c("wt", grp)) %>%
+      select(-sig) %>%
+      pivot_longer(c("log2fold", "FDR")) %>%
+      unite("name", c("group", "name")) %>%
+      pivot_wider(values_from = "value", names_from = "name")
+    
+    internal.df = internal.logicalMatrix %>%
+      select(Gene, venn_group) %>%
+      left_join(internal.data, by = "Gene")
+    
+    out[[name]] <- internal.df
+    
+  }
+}
+
+write_xlsx(out, "table2-explore-venns.xlsx")
+```
+
