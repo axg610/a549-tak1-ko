@@ -156,7 +156,8 @@ up_hm = Heatmap(
   show_row_dend = F,
   use_raster = T,
   row_title = "936 upreg",
-  border = "black"
+  border = "black",
+  clustering_method_rows = "complete"
 )
 
 dn_hm = Heatmap(
@@ -171,7 +172,8 @@ dn_hm = Heatmap(
   show_row_dend = F,
   use_raster = T,
   row_title = "368 downreg",
-  border = "black"
+  border = "black",
+  clustering_method_rows = "complete"
 )
 
 # pdf("heatmap of 1304 il1b-reg DEGs.pdf", width = 5, height = 7)
@@ -185,6 +187,10 @@ up_hm %v% dn_hm
 
 dev.off()
 
+# save heatmaps
+
+saveRDS(draw(up_hm), "data/heatmap_up_936.rds")
+saveRDS(draw(dn_hm), "data/heatmap_dn_368.rds")
 
 cleanup_objects()
 ```
@@ -875,4 +881,79 @@ writexl::write_xlsx(
   "data/pca_parameters.xlsx"
 )
 ```
+
+
+
+
+
+```{r plots for example genes, fig.height=2, fig.width=4}
+gene = "CXCL5"
+
+df = tpm %>%
+  filter(Gene == gene) %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "mut"
+    )
+  ) %>%
+  mutate(group = factor(group, levels = c("wt", "sham", "ko", "lipid", "nat", "mut")))
+
+ggplot(
+  df,
+  aes(x = group, y = log2tpm, fill = treatment, group = treatment)
+) +
+  stat_summary(
+    geom = "errorbar",
+    fun.data = "mean_sdl",
+    fun.args = list(mult = 1),
+    position = position_dodge(width = 0.75),
+    width = 0.5,
+    lwd = 0.2
+  ) +
+  stat_summary(
+    geom = "col", 
+    fun = "mean",
+    position = position_dodge(width = 0.75),
+    width = 0.75,
+    color = "black",
+    lwd = 0.2
+    ) +
+  geom_point(
+    shape = 21,
+    fill = "white",
+    color = "black",
+    position = position_dodge(width = 0.75),
+    stroke = 0.2,
+    size = 0.8
+  ) +
+  theme_prismLike +
+  theme(
+    legend.position = "none",
+    aspect.ratio = 0.8
+  ) +
+  scale_y_continuous(
+    sec.axis = dup_axis(),
+    expand = expansion(mult = c(0.005, 0.25)),
+    breaks = scales::breaks_pretty(n=3)
+  ) +
+  scale_x_discrete(
+    expand = expansion(mult = 0.15)
+  ) +
+  labs(x = NULL, title = gene)
+
+ggsave(paste0(gene, ".png"), h = 2, w = 3, dpi = 600)
+```
+
+
+
+
+
+
+
+
 

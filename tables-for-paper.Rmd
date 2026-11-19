@@ -1,0 +1,82 @@
+```{r setup}
+library(tidyverse)
+library(readxl)
+library(writexl)
+```
+
+```{r data and helpers}
+source("scripts/main-data.R")
+source("scripts/helpers.R")
+```
+
+```{r s1: all 1304 significant genes}
+
+# holy shit. never run clustering directly in ComplexHeatmap ever again.
+# always cluster the matrix beforehand and plot as-is.
+# much easier to save and pull matrices if ever needed.
+
+# get clustered matrix for 936 upreg genes
+up_hm = readRDS("data/heatmap_up_936.rds")
+up_mat = up_hm@ht_list[["log2fold"]]@matrix
+up_order = ComplexHeatmap::row_order(up_hm)
+up_mat_ordered = up_mat[up_order, ]
+
+
+# get clustered matrix for 368 downreg genes
+dn_hm = readRDS("data/heatmap_dn_368.rds")
+dn_mat = dn_hm@ht_list[["log2fold"]]@matrix
+dn_order = ComplexHeatmap::row_order(dn_hm)
+dn_mat_ordered = dn_mat[dn_order, ]
+
+
+
+# pull tables
+
+out = list()
+
+for(l in c("up_mat_ordered", "dn_mat_ordered")){
+  
+  m = get(l)
+  
+  name = paste0(nrow(m), "_", l)
+  
+  # relabel columns
+  df = m %>%
+    as.data.frame() %>%
+    rownames_to_column("Gene") %>%
+    pivot_longer(cols = -Gene) %>%
+    mutate(
+      name = case_when(
+        
+        str_detect(name, "WT naive") ~ 
+          gsub("WT naive", "wt", name),
+        
+        str_detect(name, "sham naive") ~ 
+          gsub("sham naive", "sham", name),
+        
+        str_detect(name, "TAK1KO naive") ~ 
+          gsub("TAK1KO naive", "ko", name),
+        
+        str_detect(name, "TAK1KO lipid") ~ 
+          gsub("TAK1KO lipid", "lipid", name),
+        
+        str_detect(name, "TAK1KO TAK1-smRNA") ~ 
+          gsub("TAK1KO TAK1-smRNA", "nat", name),
+        
+        str_detect(name, "TAK1KO mTAK1-smRNA") ~ 
+          gsub("TAK1KO mTAK1-smRNA", "D175A", name)
+        
+      )
+    ) %>%
+    pivot_wider(names_from = "name", values_from = "value")
+  
+  out[[name]] <- df
+}
+
+write_xlsx(out, "table1-1304-sig-genes.xlsx")
+
+cleanup_objects()
+```
+
+
+
