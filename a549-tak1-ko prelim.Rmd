@@ -884,13 +884,11 @@ writexl::write_xlsx(
 
 
 
+```{r a few genes for fig 8F/G}
 
+goi = c("CXCL5", "ZC3H12A", "RELB", "CXCL1", "STAT5A", "TNFAIP3")
 
-```{r plots for example genes, fig.height=2, fig.width=4}
-gene = "CXCL5"
-
-df = tpm %>%
-  filter(Gene == gene) %>%
+hm_df = tpm %>%
   mutate(
     group = case_when(
       group == "WT_naive" ~ "wt",
@@ -898,55 +896,107 @@ df = tpm %>%
       group == "TAK1KO_naive" ~ "ko",
       group == "TAK1KO_lipid" ~ "lipid",
       group == "TAK1KO_TAK1-smRNA" ~ "nat",
-      group == "TAK1KO_mTAK1-smRNA" ~ "mut"
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
     )
   ) %>%
-  mutate(group = factor(group, levels = c("wt", "sham", "ko", "lipid", "nat", "mut")))
+  mutate(group = factor(
+    group, 
+    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+  )) %>%
+  filter(
+    Gene %in% goi,
+    treatment == "IL1B"
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  pivot_wider(names_from = "group", values_from = "log2fold") %>%
+  mutate(Gene = factor(Gene, levels = goi)) %>%
+  arrange(Gene) %>%
+  column_to_rownames("Gene") %>%
+  as.matrix()
 
-ggplot(
-  df,
-  aes(x = group, y = log2tpm, fill = treatment, group = treatment)
-) +
-  stat_summary(
-    geom = "errorbar",
-    fun.data = "mean_sdl",
-    fun.args = list(mult = 1),
-    position = position_dodge(width = 0.75),
-    width = 0.5,
-    lwd = 0.2
+Heatmap(
+  hm_df,
+  cluster_rows = F,
+  cluster_columns = F,
+  col = generic_l2f_heatmap_colors(c(-10, 10), scaleType = "symmetric")
+)
+
+cleanup_objects()
+
+```
+
+
+```{r plots for example genes, fig.height=2, fig.width=4}
+goi = c("CXCL5", "ZC3H12A", "RELB", "CXCL1", "STAT5A", "TNFAIP3")
+
+ylims = c(0, 13)
+
+for(gene in goi){
+  df = tpm %>%
+    filter(Gene == gene) %>%
+    mutate(
+      group = case_when(
+        group == "WT_naive" ~ "wt",
+        group == "sham_naive" ~ "sham",
+        group == "TAK1KO_naive" ~ "ko",
+        group == "TAK1KO_lipid" ~ "lipid",
+        group == "TAK1KO_TAK1-smRNA" ~ "nat",
+        group == "TAK1KO_mTAK1-smRNA" ~ "mut"
+      )
+    ) %>%
+    mutate(group = factor(
+      group, 
+      levels = c("wt", "sham", "ko", "lipid", "nat", "mut"))
+    )
+  
+  ggplot(
+    df,
+    aes(x = group, y = log2tpm, fill = treatment, group = treatment)
   ) +
-  stat_summary(
-    geom = "col", 
-    fun = "mean",
-    position = position_dodge(width = 0.75),
-    width = 0.75,
-    color = "black",
-    lwd = 0.2
+    stat_summary(
+      geom = "errorbar",
+      fun.data = "mean_sdl",
+      fun.args = list(mult = 1),
+      position = position_dodge(width = 0.75),
+      width = 0.5,
+      lwd = 0.2
     ) +
-  geom_point(
-    shape = 21,
-    fill = "white",
-    color = "black",
-    position = position_dodge(width = 0.75),
-    stroke = 0.2,
-    size = 0.8
-  ) +
-  theme_prismLike +
-  theme(
-    legend.position = "none",
-    aspect.ratio = 0.8
-  ) +
-  scale_y_continuous(
-    sec.axis = dup_axis(),
-    expand = expansion(mult = c(0.005, 0.25)),
-    breaks = scales::breaks_pretty(n=3)
-  ) +
-  scale_x_discrete(
-    expand = expansion(mult = 0.15)
-  ) +
-  labs(x = NULL, title = gene)
-
-ggsave(paste0(gene, ".png"), h = 2, w = 3, dpi = 600)
+    stat_summary(
+      geom = "col", 
+      fun = "mean",
+      position = position_dodge(width = 0.75),
+      width = 0.75,
+      color = "black",
+      lwd = 0.2
+    ) +
+    geom_point(
+      shape = 21,
+      fill = "white",
+      color = "black",
+      position = position_dodge(width = 0.75),
+      stroke = 0.2,
+      size = 0.8
+    ) +
+    theme_prismLike +
+    theme(
+      legend.position = "none",
+      aspect.ratio = 0.8
+    ) +
+    scale_y_continuous(
+      sec.axis = dup_axis(),
+      expand = expansion(mult = c(0.005, 0.25)),
+      breaks = scales::breaks_pretty(n=3)
+    ) +
+    scale_x_discrete(
+      expand = expansion(mult = 0.15)
+    ) +
+    coord_cartesian(ylim = ylims) +
+    labs(x = NULL, title = gene)
+  
+  ggsave(paste0(gene, ".png"), h = 1.5, w = 3, dpi = 600)
+}
 ```
 
 
