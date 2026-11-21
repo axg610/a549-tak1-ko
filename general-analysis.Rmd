@@ -927,7 +927,6 @@ cleanup_objects()
 
 ```
 
-
 ```{r plots for example genes, fig.height=2, fig.width=4}
 goi = c("CXCL5", "ZC3H12A", "RELB", "CXCL1", "STAT5A", "TNFAIP3")
 
@@ -998,6 +997,81 @@ for(gene in goi){
   ggsave(paste0(gene, ".png"), h = 1.5, w = 3, dpi = 600)
 }
 ```
+
+
+
+```{r supplemental fig 15; 15 il1b-upregulated genes, fig.height=15, fig.width=3}
+genes_to_plot = c(
+  "CCL20", "CSF3", "IL6", "CSF2", "IL1A", "C11orf96", "CCL4", "IL1B"
+  # "IGFL1", "SELE", "TNF", "CCL22", "PTX3", "SERPINA3", "ICAM1", "GAPDH"
+)
+
+
+df = tpm %>%
+  filter(Gene %in% genes_to_plot) %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  mutate(Gene = factor(Gene, levels = genes_to_plot))
+
+ggplot(
+  df,
+  # aes(x = group, y = log2tpm)
+    aes(x = group, y = log2fold)
+) +
+  facet_grid(Gene~"", scales = "free_y") +
+  geom_boxplot(
+    aes(fill = treatment),
+    outliers = F,
+    lwd = 0.3,
+    color = "black",
+    position = position_dodge(width = 0.75)
+  ) +
+  geom_point(
+    aes(shape = treatment),
+    fill = "white",
+    color = "black",
+    stroke = 0.3,
+    position = position_dodge(width = 0.75)
+  ) +
+  scale_fill_manual(values = c("grey50", "#FC4E07")) +
+  scale_y_continuous(
+    sec.axis = dup_axis(),
+    breaks = scales::breaks_pretty(n = 4)
+    ) +
+  scale_shape_manual(values = c(21, 24)) +
+  theme_prismLike +
+  theme(
+    aspect.ratio = 0.75,
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    panel.grid.major = element_line(color = "grey90")
+  )
+
+ggsave("s15.1.png", h = 12, w = 3, dpi = 1200)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
