@@ -693,21 +693,18 @@ ggplot(
     )
   ) +
   scale_shape_manual(values = c(16, 17, 0, 3, 15, 7)) +
-  # theme_bw() +
+  theme_prismLike +
   theme(
     aspect.ratio = 1,
-    #   panel.grid.minor = element_blank(),
-    #   panel.border = element_rect(color = "black", fill = NA),
-    #   axis.line = element_line(color = "black"),
-    #   axis.ticks = element_line(color = "black"),
-    #   text = element_text(size = 12, color = "black"),
-    #   legend.text = element_text(color = "black"),
-    #   legend.title = element_text(color = "black")
+    panel.grid.major = element_line(color = "grey90")
   ) +
   labs(
     color = "treatment",
     shape = "condition"
-  )
+  ) +
+  scale_y_continuous(sec.axis = dup_axis())
+
+ggsave("pca.png", h = 3, w = 4, dpi = 600)
 ```
 
 ```{r what drives the upward shift along pc2?}
@@ -826,44 +823,34 @@ ggplot(
   )
 ) +
   stat_summary(
-    geom = "col",
-    fun = "mean",
-    color = "black",
-    lwd = 0.5,
-    width = 0.5
-  ) +
-  stat_summary(
     geom = "errorbar",
     fun.data = "mean_sdl",
     fun.args = list(mult = 1),
     width = 0.3,
-    lwd = 0.5
+    lwd = 0.2
   ) +
-  geom_jitter(
+  stat_summary(
+    geom = "col",
+    fun = "mean",
+    color = "black",
+    lwd = 0.2,
+    width = 0.5
+  ) +
+  geom_point(
     shape = 21,
     fill = "white",
     color = "black",
-    width = 0.1,
     size = 2,
-    stroke = 1
+    stroke = 0.2
   ) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.13))) +
-  
-  # labs(x = NULL, y = "PC1/2 distance from NS") +
-  
-  theme(
-    panel.grid = element_blank(),
-    panel.border = element_rect(
-      color = "black",
-      fill = NA,
-      linewidth = 0.5
-    ),
-    panel.background = element_rect(fill = NA),
-    axis.ticks.length = unit(-0.2, "cm"),
-    axis.ticks = element_line(color = "black", linewidth = 0.5),
-    axis.text.x = element_blank(),
-    aspect.ratio = 0.25
-  )
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.13)),
+    sec.axis = dup_axis()
+    ) +
+  theme_prismLike +
+  theme(aspect.ratio = 1)
+
+ggsave("pca distance.png", h = 2, w = 3, dpi = 600)
 ```
 
 ```{r write out pca info for rob}
