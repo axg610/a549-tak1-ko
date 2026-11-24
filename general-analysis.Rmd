@@ -656,7 +656,7 @@ tukey = pc_distance %>%
   .$group %>%
   as.data.frame() %>%
   rownames_to_column("comparison") %>%
-  select(comparison, pval = `p adj`) %>%
+  select(comparison, diff ,pval = `p adj`) %>%
   mutate(
     sig = case_when(
       pval <= 0.001  ~ "***",
@@ -844,11 +844,12 @@ ggplot(
     stroke = 0.2
   ) +
   scale_y_continuous(
-    expand = expansion(mult = c(0, 0.13)),
-    sec.axis = dup_axis()
+    expand = expansion(mult = c(0, 0.25)),
+    sec.axis = dup_axis(),
+    breaks = c(0, 25, 50, 75, 100)
     ) +
   theme_prismLike +
-  theme(aspect.ratio = 1)
+  theme(aspect.ratio = 0.5)
 
 ggsave("pca distance.png", h = 2, w = 3, dpi = 600)
 ```
@@ -989,8 +990,8 @@ for(gene in goi){
 
 ```{r supplemental fig 15; 15 il1b-upregulated genes, fig.height=15, fig.width=3}
 genes_to_plot = c(
-  "CCL20", "CSF3", "IL6", "CSF2", "IL1A", "C11orf96", "CCL4", "IL1B"
-  # "IGFL1", "SELE", "TNF", "CCL22", "PTX3", "SERPINA3", "ICAM1", "GAPDH"
+  # "CCL20", "CSF3", "IL6", "CSF2", "IL1A", "C11orf96", "CCL4", "IL1B"
+  "IGFL1", "SELE", "TNF", "CCL22", "PTX3", "SERPINA3", "ICAM1", "GAPDH"
 )
 
 
