@@ -635,9 +635,9 @@ hm = Heatmap(
   cluster_rows = F,
   cluster_columns = F,
   col = generic_l2f_heatmap_colors(
-    c(0, 1), 
+    c(0, 1, 1.5), 
     scaleType = "one-sided",
-    colorscale = c("white", "firebrick2"),
+    colorscale = c("white", "firebrick2", "firebrick4"),
     clipFactor = 1
     ),
   row_names_side = "left",
@@ -1205,18 +1205,71 @@ cleanup_objects()
 
 ```{r}
 
-# assets
+# ===== main data =====
 
 goi_68_ranked = readRDS("data/goi_68_ranked.rds")
 
-colsplits = factor(
+ko_vs_wt_diff = read_tsv("data/KO_IL1B_interaction_test.txt")
+
+mat_log2fold_average = tpm %>%
+  filter(Gene %in% goi_68_ranked, treatment == "IL1B") %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  ) %>%
+  mutate(group = factor(
+    group, 
+    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+  )) %>%
+  arrange(Gene, group) %>%
+  pivot_wider(names_from = "group", values_from = "log2fold") %>%
+  column_to_rownames("Gene") %>%
+  as.matrix() %>%
+  .[goi_68_ranked, ]
+
+mat_tpm_average = tpm %>%
+  filter(Gene %in% goi_68_ranked) %>%
+  select(Gene, group, treatment, log2tpm) %>%
+  group_by(Gene, group, treatment) %>%
+  summarize(log2tpm = mean(log2tpm), .groups = "drop") %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  ) %>%
+  mutate(group = factor(
+    group, 
+    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+  )) %>%
+  arrange(Gene, group) %>%
+  unite(name, c(group, treatment), sep = "_") %>%
+  pivot_wider(names_from = "name", values_from = "log2tpm") %>%
+  column_to_rownames("Gene") %>%
+  as.matrix() %>%
+  .[goi_68_ranked, ]
+
+colsplits_tpm = factor(
   c(
-    rep("wt", 4),
-    rep("sham", 4),
-    rep("ko", 4),
-    rep("lipid", 4),
-    rep("nat", 4),
-    rep("D175A", 4)
+    rep("wt", 2),
+    rep("sham", 2),
+    rep("ko", 2),
+    rep("lipid", 2),
+    rep("nat", 2),
+    rep("D175A", 2)
   ),
   levels = c(
     "wt",
@@ -1228,47 +1281,18 @@ colsplits = factor(
   )
 )
 
-ko_vs_wt_diff = read_tsv("data/KO_IL1B_interaction_test.txt")
-
-colsplits_tpm = factor(
-  c(
-    rep("wt_NS", 4),
-    rep("wt_IL1B", 4),
-    rep("sham_NS", 4),
-    rep("sham_IL1B", 4),
-    rep("ko_NS", 4),
-    rep("ko_IL1B", 4),
-    rep("lipid_NS", 4),
-    rep("lipid_IL1B", 4),
-    rep("nat_NS", 4),
-    rep("nat_IL1B", 4),
-    rep("D175A_NS", 4),
-    rep("D175A_IL1B", 4)
-  ),
-  levels = c(
-    "wt_NS", "wt_IL1B",
-    "sham_NS", "sham_IL1B",
-    "ko_NS", "ko_IL1B",
-    "lipid_NS", "lipid_IL1B",
-    "nat_NS", "nat_IL1B",
-    "D175A_NS", "D175A_IL1B"
-  )
-)
-
 
 # log2fold matrix
 
 hm_l2f = Heatmap(
-  mat[goi_68_ranked, ],
+  mat_log2fold_average,
   cluster_rows = F,
   cluster_columns = F,
-  show_column_names = F,
   col = generic_l2f_heatmap_colors(
     c(-10, 10),
     scaleType = "symmetric"
   ),
   name = "log2fold",
-  column_split = colsplits,
   row_names_side = "left"
 )
 
@@ -1281,14 +1305,12 @@ dev.off()
 # log2tpm matrix
 
 hm_tpm = Heatmap(
-  mat_combined[goi_68_ranked, ],
+  mat_tpm_average,
   cluster_rows = F,
   cluster_columns = F,
-  show_column_names = F,
   col = generic_l2f_heatmap_colors(
     mat_combined[goi_68_ranked, ],
-    scaleType = "one-sided",
-    colorscale = viridisLite::viridis(5)
+    scaleType = "symmetric"
   ),
   name = "log2tpm",
   column_split = colsplits_tpm,
