@@ -571,7 +571,86 @@ cleanup_objects()
 ### Fig 8F and 8G: closer look at 68 TAK1-upreg genes
 
 ```{r percent wt heatmap for all 68 genes}
-#TODO
+# pull the 68
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+ko_up_71 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "naive", sig == "up") %>% 
+  pull(Gene)
+
+goi_68 = intersect(wt_up_738, ko_up_71)
+
+pct_wt = tpm %>%
+  filter(Gene %in% goi_68) %>%
+  
+  select(Gene, group, treatment, fold) %>%             # get linear fold
+  
+  group_by(Gene, group, treatment) %>%
+  summarize(fold = mean(fold), .groups = "drop") %>%   # take average fold
+  
+  group_by(Gene, group) %>%
+  reframe(fold = fold - fold[treatment == "NS"]) %>%
+  filter(fold != 0) %>%                                # subtract baseline
+  
+  group_by(Gene) %>%
+  mutate(pct_wt = fold / fold[group == "WT_naive"]) %>%
+  ungroup() %>%                                        # calculate % WT
+  
+  group_by(Gene) %>%
+  mutate(ranking_metric = mean(
+    pct_wt[group %in% c("TAK1KO_naive", "TAK1KO_lipid")],
+    na.rm = TRUE
+  )) %>%                             # rank by effect (mean of KO & lipid)
+  arrange(desc(ranking_metric)) %>%
+  ungroup()
+
+goi_68_ranked = unique(pct_wt$Gene)
+
+pct_wt_mat = pct_wt %>%
+  select(Gene, group, pct_wt) %>%
+  mutate(
+      group = case_when(
+        group == "WT_naive" ~ "wt",
+        group == "sham_naive" ~ "sham",
+        group == "TAK1KO_naive" ~ "ko",
+        group == "TAK1KO_lipid" ~ "lipid",
+        group == "TAK1KO_TAK1-smRNA" ~ "nat",
+        group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+      )
+    ) %>%
+    mutate(group = factor(
+      group, 
+      levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+      )) %>%
+  arrange(group) %>%
+  pivot_wider(names_from = "group", values_from = "pct_wt") %>%
+  column_to_rownames("Gene") %>%
+  as.matrix()
+
+hm = Heatmap(
+  pct_wt_mat,
+  cluster_rows = F,
+  cluster_columns = F,
+  col = generic_l2f_heatmap_colors(
+    c(0, 1), 
+    scaleType = "one-sided",
+    colorscale = c("white", "firebrick2"),
+    clipFactor = 1
+    ),
+  row_names_side = "left",
+  name = "% WT"
+)
+
+png("supplemental_68_percentWT.png", h = 12, w = 5, res = 600, units = "in")
+draw(hm)
+dev.off()
+
+write_rds(goi_68_ranked, "data/goi_68_ranked.rds")
+
+cleanup_objects()
 ```
 
 ```{r log2fold heatmap for example genes}
@@ -1116,10 +1195,160 @@ ggplot(
   )
 
 ggsave("s17.1.png", h = 12, w = 4, dpi = 1200)
+
+cleanup_objects()
 ```
 
 
 
+### Supplemental fig ???: additional metrics for 68 TAK1KO-upreg genes
+
+```{r}
+
+# assets
+
+goi_68_ranked = readRDS("data/goi_68_ranked.rds")
+
+colsplits = factor(
+  c(
+    rep("wt", 4),
+    rep("sham", 4),
+    rep("ko", 4),
+    rep("lipid", 4),
+    rep("nat", 4),
+    rep("D175A", 4)
+  ),
+  levels = c(
+    "wt",
+    "sham",
+    "ko",
+    "lipid",
+    "nat",
+    "D175A"
+  )
+)
+
+ko_vs_wt_diff = read_tsv("data/KO_IL1B_interaction_test.txt")
+
+colsplits_tpm = factor(
+  c(
+    rep("wt_NS", 4),
+    rep("wt_IL1B", 4),
+    rep("sham_NS", 4),
+    rep("sham_IL1B", 4),
+    rep("ko_NS", 4),
+    rep("ko_IL1B", 4),
+    rep("lipid_NS", 4),
+    rep("lipid_IL1B", 4),
+    rep("nat_NS", 4),
+    rep("nat_IL1B", 4),
+    rep("D175A_NS", 4),
+    rep("D175A_IL1B", 4)
+  ),
+  levels = c(
+    "wt_NS", "wt_IL1B",
+    "sham_NS", "sham_IL1B",
+    "ko_NS", "ko_IL1B",
+    "lipid_NS", "lipid_IL1B",
+    "nat_NS", "nat_IL1B",
+    "D175A_NS", "D175A_IL1B"
+  )
+)
+
+
+# log2fold matrix
+
+hm_l2f = Heatmap(
+  mat[goi_68_ranked, ],
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_names = F,
+  col = generic_l2f_heatmap_colors(
+    c(-10, 10),
+    scaleType = "symmetric"
+  ),
+  name = "log2fold",
+  column_split = colsplits,
+  row_names_side = "left"
+)
+
+png("supplemental_68_l2f.png", h = 12, w = 5, res = 600, units = "in")
+draw(hm_l2f)
+dev.off()
+
+
+
+# log2tpm matrix
+
+hm_tpm = Heatmap(
+  mat_combined[goi_68_ranked, ],
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_names = F,
+  col = generic_l2f_heatmap_colors(
+    mat_combined[goi_68_ranked, ],
+    scaleType = "one-sided",
+    colorscale = viridisLite::viridis(5)
+  ),
+  name = "log2tpm",
+  column_split = colsplits_tpm,
+  row_names_side = "left",
+)
+
+png("supplemental_68_tpm.png", h = 12, w = 12, res = 600, units = "in")
+draw(hm_tpm)
+dev.off()
+
+
+
+# interaction test diff matrix
+
+diff_mat = ko_vs_wt_diff %>%
+  column_to_rownames("Gene") %>%
+  select(log2diff) %>%
+  as.matrix() %>%
+  .[goi_68_ranked, ]
+
+hm_log2diff = Heatmap(
+  diff_mat,
+  cluster_rows = F,
+  col = generic_l2f_heatmap_colors(
+    diff_mat,
+    scaleType = "symmetric",
+    colorscale = c("aquamarine4", "aquamarine2", "white", "orchid2", "orchid4")
+  ),
+  name = "log2diff"
+)
+
+png("supplemental_68_log2diff.png", h = 12, w = 3, res = 600, units = "in")
+draw(hm_log2diff)
+dev.off()
+
+
+# interaction test FDR matrix
+
+fdr_mat = ko_vs_wt_diff %>%
+  column_to_rownames("Gene") %>%
+  select(FDR) %>%
+  mutate(FDR = if_else(FDR <= 0.05, 1, 0)) %>%
+  as.matrix() %>%
+  .[goi_68_ranked, ]
+
+hm_fdr = Heatmap(
+  fdr_mat,
+  cluster_rows = F,
+  col = generic_l2f_heatmap_colors(
+    diff_mat,
+    scaleType = "one-sided",
+    colorscale = c("white", "black")
+  ),
+  name = "log2diff"
+)
+
+png("supplemental_68_FDR.png", h = 12, w = 3, res = 600, units = "in")
+draw(hm_fdr)
+dev.off()
+```
 
 
 
