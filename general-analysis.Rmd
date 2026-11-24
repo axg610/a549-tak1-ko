@@ -1251,38 +1251,47 @@ mat_tpm_average = tpm %>%
       group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
     )
   ) %>%
-  mutate(group = factor(
-    group, 
-    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
-  )) %>%
-  arrange(Gene, group) %>%
+  mutate(
+    group = factor(
+      group, 
+      levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+    ),
+    treatment = factor(treatment, levels = c("NS", "IL1B"))
+  ) %>%
+  arrange(Gene, treatment, group) %>%
   unite(name, c(group, treatment), sep = "_") %>%
   pivot_wider(names_from = "name", values_from = "log2tpm") %>%
   column_to_rownames("Gene") %>%
   as.matrix() %>%
   .[goi_68_ranked, ]
 
+# colsplits_tpm = factor(
+#   c(
+#     rep("wt", 2),
+#     rep("sham", 2),
+#     rep("ko", 2),
+#     rep("lipid", 2),
+#     rep("nat", 2),
+#     rep("D175A", 2)
+#   ),
+#   levels = c(
+#     "wt",
+#     "sham",
+#     "ko",
+#     "lipid",
+#     "nat",
+#     "D175A"
+#   )
+# )
+
 colsplits_tpm = factor(
-  c(
-    rep("wt", 2),
-    rep("sham", 2),
-    rep("ko", 2),
-    rep("lipid", 2),
-    rep("nat", 2),
-    rep("D175A", 2)
-  ),
-  levels = c(
-    "wt",
-    "sham",
-    "ko",
-    "lipid",
-    "nat",
-    "D175A"
-  )
+  c(rep("NS", 6), rep("IL1B", 6)),
+  levels = c("NS", "IL1B")
 )
 
 
-# log2fold matrix
+
+# ===== log2fold matrix =====
 
 hm_l2f = Heatmap(
   mat_log2fold_average,
@@ -1302,7 +1311,7 @@ dev.off()
 
 
 
-# log2tpm matrix
+# ===== log2tpm matrix =====
 
 hm_tpm = Heatmap(
   mat_tpm_average,
@@ -1310,7 +1319,8 @@ hm_tpm = Heatmap(
   cluster_columns = F,
   col = generic_l2f_heatmap_colors(
     mat_combined[goi_68_ranked, ],
-    scaleType = "symmetric"
+    scaleType = "one-sided",
+    colorscale = c("white", "firebrick2")
   ),
   name = "log2tpm",
   column_split = colsplits_tpm,
@@ -1323,7 +1333,7 @@ dev.off()
 
 
 
-# interaction test diff matrix
+# ===== interaction test diff matrix =====
 
 diff_mat = ko_vs_wt_diff %>%
   column_to_rownames("Gene") %>%
@@ -1347,7 +1357,7 @@ draw(hm_log2diff)
 dev.off()
 
 
-# interaction test FDR matrix
+# ===== interaction test FDR matrix =====
 
 fdr_mat = ko_vs_wt_diff %>%
   column_to_rownames("Gene") %>%
