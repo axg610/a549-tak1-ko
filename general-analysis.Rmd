@@ -25,6 +25,8 @@ theme_prismLike = theme_bw() +
 ```
 
 
+### Heatmap for RNAseq explorer
+
 ```{r heatmap for gene explorer, fig.height=7, fig.width=5}
 # goi = dea %>%
 #   filter(
@@ -94,7 +96,70 @@ theme_prismLike = theme_bw() +
 
 
 
+### Fig 8A: volcano
 
+```{r volcano plots for each condition, fig.height=8, fig.width=3, dpi=600}
+df = dea %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  mutate(logFDR = -log10(FDR)) %>%
+  mutate(logFDR = if_else(is.infinite(logFDR), 325, logFDR))
+
+ggplot(
+  df,
+  aes(x = log2fold, y = logFDR)
+) +
+  facet_wrap(
+    ~group, 
+    ncol = 2,
+    axes = "all",
+    labeller = labeller(
+      group = c(
+        "WT_naive" = "wt",
+        "sham_naive" = "sham",
+        "TAK1KO_naive" = "KO",
+        "TAK1KO_lipid" = "KO+lipid",
+        "TAK1KO_TAK1-smRNA" = "KO+nat",
+        "TAK1KO_mTAK1-smRNA" = "KO+D175A"
+      )
+    )
+  ) +
+  geom_point(
+    aes(fill = sig),
+    size = 0.8,
+    shape = 21,
+    color = "black",
+    stroke = 0.25
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", lwd = 0.25) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", lwd = 0.25) +
+  theme_prismLike +
+  theme(
+    legend.position = "none"
+  ) +
+  scale_fill_manual(
+    values = c("up" = "firebrick1", "ns" = "grey", "dn" = "steelblue1")
+  ) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0.15, 0.25)),
+    limits = c(0, 350),
+    breaks = c(0, 100, 200, 300),
+    sec.axis = dup_axis()
+  ) +
+  scale_x_continuous(
+    expand = expansion(mult = 0.2),
+    breaks = c(-5, 0, 5, 10)
+  ) +
+  labs(x = "log2fold", y = "-log10(FDR)")
+
+ggsave("volcano.png", h = 8, w = 3, dpi = 600)
+
+df %>%
+  select(group, sig) %>%
+  count(group, sig)
+```
+
+
+### Fig 8B: heatmap
 
 ```{r heatmap of 1304 il1b reg genes, fig.height=7, fig.width=5}
 goi_up = dea %>%
@@ -241,69 +306,17 @@ cleanup_objects()
 
 
 
-```{r volcano plots for each condition, fig.height=8, fig.width=3, dpi=600}
-df = dea %>%
-  mutate(group = factor(group, levels = unique(group))) %>%
-  mutate(logFDR = -log10(FDR)) %>%
-  mutate(logFDR = if_else(is.infinite(logFDR), 325, logFDR))
-
-ggplot(
-  df,
-  aes(x = log2fold, y = logFDR)
-) +
-  facet_wrap(
-    ~group, 
-    ncol = 2,
-    axes = "all",
-    labeller = labeller(
-      group = c(
-        "WT_naive" = "wt",
-        "sham_naive" = "sham",
-        "TAK1KO_naive" = "KO",
-        "TAK1KO_lipid" = "KO+lipid",
-        "TAK1KO_TAK1-smRNA" = "KO+nat",
-        "TAK1KO_mTAK1-smRNA" = "KO+D175A"
-      )
-    )
-  ) +
-  geom_point(
-    aes(fill = sig),
-    size = 0.8,
-    shape = 21,
-    color = "black",
-    stroke = 0.25
-  ) +
-  geom_hline(yintercept = -log10(0.05), linetype = "dashed", lwd = 0.25) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", lwd = 0.25) +
-  theme_prismLike +
-  theme(
-    legend.position = "none"
-  ) +
-  scale_fill_manual(
-    values = c("up" = "firebrick1", "ns" = "grey", "dn" = "steelblue1")
-  ) +
-  scale_y_continuous(
-    expand = expansion(mult = c(0.15, 0.25)),
-    limits = c(0, 350),
-    breaks = c(0, 100, 200, 300),
-    sec.axis = dup_axis()
-  ) +
-  scale_x_continuous(
-    expand = expansion(mult = 0.2),
-    breaks = c(-5, 0, 5, 10)
-  ) +
-  labs(x = "log2fold", y = "-log10(FDR)")
-
-ggsave("volcano.png", h = 8, w = 3, dpi = 600)
-
-df %>%
-  select(group, sig) %>%
-  count(group, sig)
-```
+### Fig 8C: Venns
+see questions_upreg-genes and questions_downreg-genes Rmd files
 
 
 
+### Fig 8D: correlations
+see questions_upreg-genes and questions_downreg-genes Rmd files
 
+
+
+### Fig 8D: violin
 
 ```{r violin plots, fig.width=3, fig.height=2}
 
@@ -554,6 +567,130 @@ cleanup_objects()
 ```
 
 
+
+### Fig 8F and 8G: closer look at 68 TAK1-upreg genes
+
+```{r percent wt heatmap for all 68 genes}
+#TODO
+```
+
+```{r log2fold heatmap for example genes}
+
+goi = c("CXCL5", "ZC3H12A", "RELB", "CXCL1", "STAT5A", "TNFAIP3")
+
+hm_df = tpm %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "nat",
+      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
+    )
+  ) %>%
+  mutate(group = factor(
+    group, 
+    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+  )) %>%
+  filter(
+    Gene %in% goi,
+    treatment == "IL1B"
+  ) %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  pivot_wider(names_from = "group", values_from = "log2fold") %>%
+  mutate(Gene = factor(Gene, levels = goi)) %>%
+  arrange(Gene) %>%
+  column_to_rownames("Gene") %>%
+  as.matrix()
+
+Heatmap(
+  hm_df,
+  cluster_rows = F,
+  cluster_columns = F,
+  col = generic_l2f_heatmap_colors(c(-10, 10), scaleType = "symmetric")
+)
+
+cleanup_objects()
+
+```
+
+```{r plots for example genes, fig.height=2, fig.width=4}
+goi = c("CXCL5", "ZC3H12A", "RELB", "CXCL1", "STAT5A", "TNFAIP3")
+
+ylims = c(0, 13)
+
+for(gene in goi){
+  df = tpm %>%
+    filter(Gene == gene) %>%
+    mutate(
+      group = case_when(
+        group == "WT_naive" ~ "wt",
+        group == "sham_naive" ~ "sham",
+        group == "TAK1KO_naive" ~ "ko",
+        group == "TAK1KO_lipid" ~ "lipid",
+        group == "TAK1KO_TAK1-smRNA" ~ "nat",
+        group == "TAK1KO_mTAK1-smRNA" ~ "mut"
+      )
+    ) %>%
+    mutate(group = factor(
+      group, 
+      levels = c("wt", "sham", "ko", "lipid", "nat", "mut"))
+    )
+  
+  ggplot(
+    df,
+    aes(x = group, y = log2tpm, fill = treatment, group = treatment)
+  ) +
+    stat_summary(
+      geom = "errorbar",
+      fun.data = "mean_sdl",
+      fun.args = list(mult = 1),
+      position = position_dodge(width = 0.75),
+      width = 0.5,
+      lwd = 0.2
+    ) +
+    stat_summary(
+      geom = "col", 
+      fun = "mean",
+      position = position_dodge(width = 0.75),
+      width = 0.75,
+      color = "black",
+      lwd = 0.2
+    ) +
+    geom_point(
+      shape = 21,
+      fill = "white",
+      color = "black",
+      position = position_dodge(width = 0.75),
+      stroke = 0.2,
+      size = 0.8
+    ) +
+    theme_prismLike +
+    theme(
+      legend.position = "none",
+      aspect.ratio = 0.8
+    ) +
+    scale_y_continuous(
+      sec.axis = dup_axis(),
+      expand = expansion(mult = c(0.005, 0.25)),
+      breaks = scales::breaks_pretty(n=3)
+    ) +
+    scale_x_discrete(
+      expand = expansion(mult = 0.15)
+    ) +
+    coord_cartesian(ylim = ylims) +
+    labs(x = NULL, title = gene)
+  
+  ggsave(paste0(gene, ".png"), h = 1.5, w = 3, dpi = 600)
+}
+```
+
+
+
+### Supplemental fig 13: PCA
 
 ```{r pca on tpms}
 
@@ -872,123 +1009,9 @@ writexl::write_xlsx(
 
 
 
-```{r a few genes for fig 8F/G}
+### Supplemental fig 15: fifteen highly KO'd genes
 
-goi = c("CXCL5", "ZC3H12A", "RELB", "CXCL1", "STAT5A", "TNFAIP3")
-
-hm_df = tpm %>%
-  mutate(
-    group = case_when(
-      group == "WT_naive" ~ "wt",
-      group == "sham_naive" ~ "sham",
-      group == "TAK1KO_naive" ~ "ko",
-      group == "TAK1KO_lipid" ~ "lipid",
-      group == "TAK1KO_TAK1-smRNA" ~ "nat",
-      group == "TAK1KO_mTAK1-smRNA" ~ "D175A"
-    )
-  ) %>%
-  mutate(group = factor(
-    group, 
-    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
-  )) %>%
-  filter(
-    Gene %in% goi,
-    treatment == "IL1B"
-  ) %>%
-  select(Gene, group, log2fold) %>%
-  group_by(Gene, group) %>%
-  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
-  pivot_wider(names_from = "group", values_from = "log2fold") %>%
-  mutate(Gene = factor(Gene, levels = goi)) %>%
-  arrange(Gene) %>%
-  column_to_rownames("Gene") %>%
-  as.matrix()
-
-Heatmap(
-  hm_df,
-  cluster_rows = F,
-  cluster_columns = F,
-  col = generic_l2f_heatmap_colors(c(-10, 10), scaleType = "symmetric")
-)
-
-cleanup_objects()
-
-```
-
-```{r plots for example genes, fig.height=2, fig.width=4}
-goi = c("CXCL5", "ZC3H12A", "RELB", "CXCL1", "STAT5A", "TNFAIP3")
-
-ylims = c(0, 13)
-
-for(gene in goi){
-  df = tpm %>%
-    filter(Gene == gene) %>%
-    mutate(
-      group = case_when(
-        group == "WT_naive" ~ "wt",
-        group == "sham_naive" ~ "sham",
-        group == "TAK1KO_naive" ~ "ko",
-        group == "TAK1KO_lipid" ~ "lipid",
-        group == "TAK1KO_TAK1-smRNA" ~ "nat",
-        group == "TAK1KO_mTAK1-smRNA" ~ "mut"
-      )
-    ) %>%
-    mutate(group = factor(
-      group, 
-      levels = c("wt", "sham", "ko", "lipid", "nat", "mut"))
-    )
-  
-  ggplot(
-    df,
-    aes(x = group, y = log2tpm, fill = treatment, group = treatment)
-  ) +
-    stat_summary(
-      geom = "errorbar",
-      fun.data = "mean_sdl",
-      fun.args = list(mult = 1),
-      position = position_dodge(width = 0.75),
-      width = 0.5,
-      lwd = 0.2
-    ) +
-    stat_summary(
-      geom = "col", 
-      fun = "mean",
-      position = position_dodge(width = 0.75),
-      width = 0.75,
-      color = "black",
-      lwd = 0.2
-    ) +
-    geom_point(
-      shape = 21,
-      fill = "white",
-      color = "black",
-      position = position_dodge(width = 0.75),
-      stroke = 0.2,
-      size = 0.8
-    ) +
-    theme_prismLike +
-    theme(
-      legend.position = "none",
-      aspect.ratio = 0.8
-    ) +
-    scale_y_continuous(
-      sec.axis = dup_axis(),
-      expand = expansion(mult = c(0.005, 0.25)),
-      breaks = scales::breaks_pretty(n=3)
-    ) +
-    scale_x_discrete(
-      expand = expansion(mult = 0.15)
-    ) +
-    coord_cartesian(ylim = ylims) +
-    labs(x = NULL, title = gene)
-  
-  ggsave(paste0(gene, ".png"), h = 1.5, w = 3, dpi = 600)
-}
-```
-
-
-
-```{r supplemental fig 15; 15 il1b-upregulated genes, fig.height=15, fig.width=3}
+```{r fig s15, fig.height=15, fig.width=3}
 genes_to_plot = c(
   # "CCL20", "CSF3", "IL6", "CSF2", "IL1A", "C11orf96", "CCL4", "IL1B"
   "IGFL1", "SELE", "TNF", "CCL22", "PTX3", "SERPINA3", "ICAM1", "GAPDH"
@@ -1037,6 +1060,13 @@ ggplot(
 ggsave("s15.1.png", h = 12, w = 3, dpi = 1200)
 ```
 
+
+
+### Supplemental fig 17: seven knockout-resistant genes
+
+```{r fig s13}
+#TODO
+```
 
 
 
