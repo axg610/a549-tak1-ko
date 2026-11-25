@@ -1201,9 +1201,9 @@ cleanup_objects()
 
 
 
-### Supplemental fig ???: additional metrics for 68 TAK1KO-upreg genes
+### Supplemental fig 16: additional metrics for 68 TAK1KO-upreg genes
 
-```{r}
+```{r fig s16 heatmaps}
 
 # ===== main data =====
 
@@ -1382,17 +1382,17 @@ draw(hm_fdr)
 dev.off()
 ```
 
-
-
-### Supplemental fig ???: ten genes
-
-```{r fig s15, fig.height=15, fig.width=3}
+```{r fig s16 example genes, fig.height=15, fig.width=3}
 # just manually commenting/uncommenting the ggplot: aes lines
 # to switch between fold and tpm.
 
 genes_to_plot = c(
-  "NEURL3", "CXCL5", "TRIM31", "RELB", "IL32", "CXCL1", "CXCL3",
-  "SLC52A3", "CXCL8"
+  
+  # # panel B
+  # "NEURL3", "CXCL5", "TRIM31",
+  
+  # panel C
+  "ZC3H12A", "RELB", "IL32", "CXCL2", "CXCL3"
 )
 
 df = tpm %>%
@@ -1402,8 +1402,8 @@ df = tpm %>%
 
 ggplot(
   df,
-  aes(x = group, y = log2tpm)
-    # aes(x = group, y = log2fold)
+  # aes(x = group, y = log2tpm)
+  aes(x = group, y = log2fold)
 ) +
   facet_grid(Gene~"", scales = "free_y") +
   geom_boxplot(
@@ -1434,11 +1434,10 @@ ggplot(
     panel.grid.major = element_line(color = "grey90")
   )
 
-# ggsave("10genes_log2fold.png", h = 12, w = 3, dpi = 600)
-ggsave("10genes_log2tpm.png", h = 12, w = 3, dpi = 600)
+# ggsave("temp_s16_log2fold.png", h = 12, w = 3, dpi = 600)
+ggsave("temp_s16_log2tpm.png", h = 12, w = 3, dpi = 600)
 
 ```
-
 
 
 
