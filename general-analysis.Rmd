@@ -1445,8 +1445,155 @@ cleanup_objects()
 
 
 
+### Supplemental fig 18: 118 rescue-unique genes
+
+```{r s18 heatmap and violin}
+# ===== pull genes =====
+
+wt_up_738 = dea %>% 
+  filter(condition == "WT", sig == "up") %>% 
+  pull(Gene)
+
+rescue_up_540 = dea %>% 
+  filter(condition == "TAK1KO", rescue == "TAK1-smRNA", sig == "up") %>% 
+  pull(Gene)
+
+unique_118 = setdiff(rescue_up_540, wt_up_738)
+
+# ===== heatmap =====
+
+colsplits = factor(
+  c(
+    rep("wt", 4),
+    rep("sham", 4),
+    rep("ko", 4),
+    rep("lipid", 4),
+    rep("nat", 4),
+    rep("D175A", 4)
+  ),
+  levels = c(
+    "wt",
+    "sham",
+    "ko",
+    "lipid",
+    "nat",
+    "D175A"
+  )
+)
+
+hm = Heatmap(
+  mat[unique_118, ],
+  cluster_rows = T,
+  clustering_method_rows = "ward.D2",
+  cluster_columns = F,
+  column_split = colsplits,
+  show_column_names = F,
+  col = generic_l2f_heatmap_colors(
+    mat[unique_118, ],
+    scaleType = "symmetric"
+  ),
+  name = "log2fold",
+  row_names_side = "left"
+)
+
+png("supplemental_118_l2f.png", h = 18, w = 5, res = 600, units = "in")
+draw(hm)
+dev.off()
+
+# ===== violin =====
+
+df = tpm %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  filter(Gene %in% unique_118, treatment == "IL1B") %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop")
+
+ggplot(
+  df,
+  aes(x = group, y = log2fold)
+) +
+  geom_violin(
+    scale = "width", lwd = 0.2, color = "black", fill = "firebrick2"
+  ) +
+  geom_boxplot(
+    width = 0.3, outliers = F, lwd = 0.2, color = "black", fill = "firebrick2"
+  ) +
+  # geom_jitter(width = 0.3, alpha = 0.1, size = 0.8) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  theme_prismLike +
+  theme(aspect.ratio = 0.67) +
+  scale_x_discrete(
+    labels = c("wt", "sham", "KO", "lipid", "nat", "D175A")
+  ) +
+  scale_y_continuous(
+    # expand = expansion(mult = c(0, 0.25)),
+    sec.axis = dup_axis(),
+    # limits = c(-1, 15),
+    # breaks = c(0, 5, 10)
+  )
+
+ggsave("violin 188 wt-unique.png", h = 1.5, w = 3, dpi = 600)
+
+cleanup_objects()
+
+```
+
+```{r s18 example genes, fig.height=12, fig.width=3}
+
+# just manually commenting/uncommenting the ggplot: aes lines
+# to switch between fold and tpm.
+
+genes_to_plot = c(
+  "SERPINA5", "IFNL3", "SEMA7A", "COL11A2", "SERPINE1", "STK19", "TRIM29", "PIM1"
+)
 
 
+df = tpm %>%
+  filter(Gene %in% genes_to_plot) %>%
+  mutate(group = factor(group, levels = unique(group))) %>%
+  mutate(Gene = factor(Gene, levels = genes_to_plot))
+
+ggplot(
+  df,
+  aes(x = group, y = log2tpm)
+  # aes(x = group, y = log2fold)
+) +
+  facet_grid(Gene~"", scales = "free_y") +
+  geom_boxplot(
+    aes(fill = treatment),
+    outliers = F,
+    lwd = 0.3,
+    color = "black",
+    position = position_dodge(width = 0.75)
+  ) +
+  geom_point(
+    aes(shape = treatment),
+    fill = "white",
+    color = "black",
+    stroke = 0.3,
+    position = position_dodge(width = 0.75)
+  ) +
+  scale_fill_manual(values = c("grey50", "#FC4E07")) +
+  scale_y_continuous(
+    sec.axis = dup_axis(),
+    breaks = scales::breaks_pretty(n = 4)
+    ) +
+  scale_shape_manual(values = c(21, 24)) +
+  theme_prismLike +
+  theme(
+    aspect.ratio = 0.75,
+    axis.text.x = element_blank(),
+    legend.position = "none",
+    panel.grid.major = element_line(color = "grey90")
+  )
+
+ggsave("s18.png", h = 12, w = 4, dpi = 1200)
+
+cleanup_objects()
+```
 
 
 
