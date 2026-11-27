@@ -769,7 +769,7 @@ for(gene in goi){
 
 
 
-### Supplemental fig 13: PCA
+### Supplemental fig 13: PCA and GO
 
 ```{r pca on tpms}
 
@@ -1086,6 +1086,165 @@ writexl::write_xlsx(
 )
 ```
 
+
+
+```{r pull regulated genes under each condition}
+
+# ===== pull gene lists =====
+
+for(g in unique(dea$group)){
+  
+  l = dea %>%
+    filter(group == g, sig != "ns") %>%
+    pull(Gene) %>%
+    unique()
+  
+  print(paste0(g, " ", length(l)))
+  
+  filename = paste0("data/DAVID/regulated_", g, ".txt")
+  
+  writeLines(l, filename)
+  
+  rm(g, l, filename)
+}
+
+# ran DAVID w GO_BP_DIRECT, GO_MF_DIRECT, KEGG_PATHWAY externally
+
+# ===== retrieve results ======
+
+david_results = data.frame()
+
+for(g in c("wt", "sham", "ko", "lipid", "nat", "D175A")){
+  
+  filename = paste0("data/DAVID/", g, ".xlsx")
+  
+  df = readxl::read_xlsx(filename) %>%
+    select(Category, Term, Count, `Fold Enrichment`, FDR) %>%
+    mutate(group = g, .before = 1)
+  
+  david_results = rbind(david_results, df)
+  
+  rm(g, filename, df)
+}
+
+writexl::write_xlsx(david_results, "data/DAVID/david_results.xlsx")
+
+# ===== plot top 20 for each =====
+
+for(g in c("wt", "sham", "ko", "lipid", "nat", "D175A")){
+  
+  df = david_results %>%
+    filter(group == g, FDR <= 0.05) %>%
+    arrange(`Fold Enrichment`) %>%
+    mutate(Term = factor(Term, levels = unique(Term))) %>%
+    slice_tail(n = 20)
+  
+  ggplot(
+    df,
+    aes(x = `Fold Enrichment`, y = Term)
+  ) +
+    geom_col(
+      aes(fill = -log10(FDR)),
+      color = "black",
+      lwd = 0.2
+    ) +
+    geom_point(
+      aes(size = Count)
+    ) +
+    labs(title = g)
+  
+  ggsave(paste0("top20_", g, ".png"), h = 4, w = 7)
+  
+  rm(g, df)
+  
+}
+
+# i think barplots are clunky and unnecessary. Inflammatory signatures all around.
+
+# ===== heatmap of common terms =====
+
+# david_mat = david_results %>%
+#   mutate(
+#     groupsize = case_when(
+#       group == "wt"    ~ 996,
+#       group == "sham"  ~ 1013,
+#       group == "ko"    ~ 72,
+#       group == "lipid" ~ 68,
+#       group == "nat"   ~ 612,
+#       group == "D175A" ~ 152
+#     )
+#   ) %>%
+#   group_by(group) %>%
+#   filter(
+#     FDR < 0.05,
+#     Count > 0.025 * groupsize
+#   ) %>%
+#   select(group, Term, `Fold Enrichment`) %>%
+#   pivot_wider(
+#     names_from = "group",
+#     values_from = "Fold Enrichment",
+#     values_fill = 0
+#   ) %>%
+#   column_to_rownames("Term") %>%
+#   as.matrix() %>%
+#   scale()
+# 
+# Heatmap(
+#   david_mat,
+#   cluster_columns = F,
+#   name = "fold enrichment"
+#   )
+
+terms = david_results %>%
+  group_by(group) %>%
+  filter(
+    FDR < 0.05,
+    Count >= 10
+  ) %>%
+  arrange(desc(`Fold Enrichment`)) %>%
+  slice_head(n = 10) %>%
+  ungroup() %>%
+  pull(Term) %>%
+  unique()
+  
+david_mat <- david_results %>%
+  filter(Term %in% terms) %>%
+  group_by(group) %>%
+  mutate(`Fold Enrichment` = `Fold Enrichment` / max(`Fold Enrichment`) * 100) %>%
+  ungroup() %>%
+  select(group, Term, `Fold Enrichment`) %>%
+  mutate(group = factor(
+    group, 
+    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+  )) %>%
+  arrange(group) %>%
+  pivot_wider(
+    names_from = "group",
+    values_from = "Fold Enrichment",
+    values_fill = 0
+  ) %>%
+  column_to_rownames("Term") %>%
+  as.matrix()
+
+png("v1 GO heatmap.png", h = 5, w = 12, units = "in", res = 600)
+Heatmap(
+  david_mat,
+  cluster_columns = F,
+  clustering_method_rows = "ward.D2",
+  name = "scaled fold enrichment",
+  row_names_side = "left",
+  row_dend_side = "right",
+  col = generic_l2f_heatmap_colors(
+    c(0, 100),
+    colorscale = c("white", "firebrick2", "firebrick4"),
+    scaleType = "one-sided",
+    clipFactor = 0.95
+  ),
+  width = unit(1, "in")
+  )
+dev.off()
+  
+```
 
 
 ### Supplemental fig 14: more on pairwise venns
