@@ -159,7 +159,7 @@ for (name in c(
 
 writexl::write_xlsx(group_lists, "data/venn-up-group-genelists.xlsx")
 
-
+saveRDS(group_lists, "data/venn-up-group-genelists.rds")
 
 cleanup_objects()
 

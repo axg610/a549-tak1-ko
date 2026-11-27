@@ -1088,6 +1088,88 @@ writexl::write_xlsx(
 
 
 
+### Supplemental fig 14: more on pairwise venns
+
+```{r s14 pairwise violins, fig.height=3, fig.width=3}
+df = tpm %>%
+  filter(treatment == "IL1B") %>%
+  select(Gene, group, log2fold) %>%
+  group_by(Gene, group) %>%
+  summarize(log2fold = mean(log2fold), .groups = "drop") %>%
+  mutate(
+    group = case_when(
+      group == "WT_naive" ~ "wt",
+      group == "sham_naive" ~ "sham",
+      group == "TAK1KO_naive" ~ "ko",
+      group == "TAK1KO_lipid" ~ "lipid",
+      group == "TAK1KO_TAK1-smRNA" ~ "rescue",
+      group == "TAK1KO_mTAK1-smRNA" ~ "mutant"
+    )
+  ) %>%
+  mutate(group = factor(
+    group, 
+    levels = c("wt", "sham", "ko", "lipid", "rescue", "mutant")
+  )) %>%
+  arrange(Gene, group)
+
+genelists = readRDS("data/venn-up-group-genelists.rds")
+
+
+for(listname in c(
+  "sham_up_751",
+  "ko_up_71",
+  "lipid_up_68",
+  "rescue_up_540",
+  "mutant_up_139"
+)){
+  
+  l1 = genelists[[listname]]$Gene
+  g1 = sub("_.*", "", listname)
+  
+  l2 = genelists[["wt_up_738"]]$Gene
+  g2 = "wt"
+  
+  filename = paste0(g1, "_", g2, "_violinPlot.png")
+  
+  
+  plot_df = rbind(
+    df %>% filter(Gene %in% l1, group == g1),
+    df %>% filter(Gene %in% l2, group == g2)
+  ) %>%
+    mutate(group = factor(group, levels = c(g1, g2)))
+  
+  print(  
+    ggplot(
+    plot_df,
+    aes(x = group, y = log2fold)
+  ) +
+    # geom_violin(
+    #   lwd = 0.2,
+    #   fill = "firebrick2",
+    #   color = "black",
+    #   scale = "width"
+    # ) +
+    geom_boxplot(
+      outliers = F,
+      lwd = 0.2,
+      fill = "firebrick2",
+      color = "black",
+      width = 0.3
+    ) +
+    geom_point() +
+    theme_prismLike +
+    theme(
+      aspect.ratio = 1
+    ) +
+    labs(x = NULL) +
+    coord_cartesian(ylim = c(0, 3))
+  )
+}
+
+```
+
+
+
 ### Supplemental fig 15: fifteen highly KO'd genes
 
 ```{r fig s15, fig.height=15, fig.width=3}
