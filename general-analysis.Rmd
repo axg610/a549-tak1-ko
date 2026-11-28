@@ -1161,39 +1161,7 @@ for(g in c("wt", "sham", "ko", "lipid", "nat", "D175A")){
 
 # i think barplots are clunky and unnecessary. Inflammatory signatures all around.
 
-# ===== heatmap of common terms =====
-
-# david_mat = david_results %>%
-#   mutate(
-#     groupsize = case_when(
-#       group == "wt"    ~ 996,
-#       group == "sham"  ~ 1013,
-#       group == "ko"    ~ 72,
-#       group == "lipid" ~ 68,
-#       group == "nat"   ~ 612,
-#       group == "D175A" ~ 152
-#     )
-#   ) %>%
-#   group_by(group) %>%
-#   filter(
-#     FDR < 0.05,
-#     Count > 0.025 * groupsize
-#   ) %>%
-#   select(group, Term, `Fold Enrichment`) %>%
-#   pivot_wider(
-#     names_from = "group",
-#     values_from = "Fold Enrichment",
-#     values_fill = 0
-#   ) %>%
-#   column_to_rownames("Term") %>%
-#   as.matrix() %>%
-#   scale()
-# 
-# Heatmap(
-#   david_mat,
-#   cluster_columns = F,
-#   name = "fold enrichment"
-#   )
+# ===== identify common terms =====
 
 terms = david_results %>%
   group_by(group) %>%
@@ -1206,12 +1174,95 @@ terms = david_results %>%
   ungroup() %>%
   pull(Term) %>%
   unique()
+
+
+
+# ===== heatmap of -log10FDR values =====
   
-david_mat <- david_results %>%
+fdr_mat <- david_results %>%
   filter(Term %in% terms) %>%
-  group_by(group) %>%
-  mutate(`Fold Enrichment` = `Fold Enrichment` / max(`Fold Enrichment`) * 100) %>%
-  ungroup() %>%
+  select(group, Term, FDR) %>%
+  mutate(group = factor(
+    group, 
+    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+  )) %>%
+  arrange(group) %>%
+  pivot_wider(
+    names_from = "group",
+    values_from = "FDR",
+    values_fill = 1
+  ) %>%
+  column_to_rownames("Term") %>%
+  as.matrix() %>%
+  -log10(.)
+
+fdr_hm <- Heatmap(
+  fdr_mat,
+  cluster_columns = FALSE,
+  clustering_method_rows = "ward.D2",
+  row_names_side = "left",
+  show_row_dend = F,
+  col = generic_l2f_heatmap_colors(
+    fdr_mat, 
+    colorscale = c("white", "firebrick2", "firebrick4"),
+    scaleType = "one-sided"
+    ),
+  name = "-log10FDR",
+  width = unit(1, "in")
+)
+
+png("v2_fdr_heatmap.png", h = 5, w = 12, units = "in", res = 600)
+fdr_hm
+dev.off()
+
+# extract row order for next heatmaps
+fdr_hm_drawn <- draw(fdr_hm)
+row_order <- row_order(fdr_hm_drawn)
+
+
+
+# ===== heatmap of count values =====
+  
+count_mat <- david_results %>%
+  filter(Term %in% terms) %>%
+  select(group, Term, Count) %>%
+  mutate(group = factor(
+    group, 
+    levels = c("wt", "sham", "ko", "lipid", "nat", "D175A")
+  )) %>%
+  arrange(group) %>%
+  pivot_wider(
+    names_from = "group",
+    values_from = "Count",
+    values_fill = 1
+  ) %>%
+  column_to_rownames("Term") %>%
+  as.matrix() %>%
+  .[row_order, ]
+
+count_hm <- Heatmap(
+  count_mat,
+  cluster_columns = FALSE,
+  cluster_rows = FALSE,
+  row_names_side = "left",
+  show_row_dend = F,
+  col = generic_l2f_heatmap_colors(
+    count_mat, 
+    colorscale = c("white", "firebrick2", "firebrick4"),
+    scaleType = "one-sided",
+    clipFactor = 1
+    ),
+  name = "count"
+)
+
+count_hm
+
+
+
+# ===== heatmap of fold enrichment values =====
+  
+enrich_mat <- david_results %>%
+  filter(Term %in% terms) %>%
   select(group, Term, `Fold Enrichment`) %>%
   mutate(group = factor(
     group, 
@@ -1221,30 +1272,30 @@ david_mat <- david_results %>%
   pivot_wider(
     names_from = "group",
     values_from = "Fold Enrichment",
-    values_fill = 0
+    values_fill = 1
   ) %>%
   column_to_rownames("Term") %>%
-  as.matrix()
+  as.matrix() %>%
+  .[row_order, ]
 
-png("v1 GO heatmap.png", h = 5, w = 12, units = "in", res = 600)
-Heatmap(
-  david_mat,
-  cluster_columns = F,
-  clustering_method_rows = "ward.D2",
-  name = "scaled fold enrichment",
+enrich_hm <- Heatmap(
+  enrich_mat,
+  cluster_columns = FALSE,
+  cluster_rows = FALSE,
   row_names_side = "left",
-  row_dend_side = "right",
+  show_row_dend = F,
   col = generic_l2f_heatmap_colors(
-    c(0, 100),
+    count_mat, 
     colorscale = c("white", "firebrick2", "firebrick4"),
     scaleType = "one-sided",
-    clipFactor = 0.95
-  ),
-  width = unit(1, "in")
-  )
-dev.off()
+    clipFactor = 1
+    ),
+  name = "fold enrichment"
+)
 
-cleanup_objects()
+enrich_hm
+
+# cleanup_objects()
 ```
 
 
