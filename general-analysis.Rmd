@@ -1243,13 +1243,14 @@ Heatmap(
   width = unit(1, "in")
   )
 dev.off()
-  
+
+cleanup_objects()
 ```
 
 
 ### Supplemental fig 14: more on pairwise venns
 
-```{r s14 pairwise violins, fig.height=3, fig.width=3}
+```{r s14 pairwise violins, fig.height=2, fig.width=2}
 df = tpm %>%
   filter(treatment == "IL1B") %>%
   select(Gene, group, log2fold) %>%
@@ -1274,6 +1275,8 @@ df = tpm %>%
 genelists = readRDS("data/venn-up-group-genelists.rds")
 
 
+ttest_results = data.frame()
+
 for(listname in c(
   "sham_up_751",
   "ko_up_71",
@@ -1282,48 +1285,87 @@ for(listname in c(
   "mutant_up_139"
 )){
   
+  # ===== identify genes =====
+  
   l1 = genelists[[listname]]$Gene
   g1 = sub("_.*", "", listname)
   
   l2 = genelists[["wt_up_738"]]$Gene
   g2 = "wt"
   
+  goi = unique(c(l1, l2))
+  
   filename = paste0(g1, "_", g2, "_violinPlot.png")
   
+  # ===== generate violins =====
   
-  plot_df = rbind(
-    df %>% filter(Gene %in% l1, group == g1),
-    df %>% filter(Gene %in% l2, group == g2)
-  ) %>%
-    mutate(group = factor(group, levels = c(g1, g2)))
+  # plot_df = rbind(
+  #   df %>% filter(Gene %in% goi, group == g1),
+  #   df %>% filter(Gene %in% goi, group == g2)
+  # ) %>%
+  #   mutate(group = factor(group, levels = c(g2, g1)))
+  # 
+  # ggplot(
+  #   plot_df,
+  #   aes(x = group, y = log2fold, fill = group)
+  # ) +
+  #   geom_violin(
+  #     lwd = 0.2,
+  #     # fill = "firebrick2",
+  #     color = "black",
+  #     scale = "width"
+  #   ) +
+  #   geom_boxplot(
+  #     outliers = F,
+  #     lwd = 0.2,
+  #     # fill = "firebrick2",
+  #     color = "black",
+  #     width = 0.3
+  #   ) +
+  #   theme_prismLike +
+  #   theme(
+  #     aspect.ratio = 2,
+  #     legend.position = "none"
+  #   ) +
+  #   labs(x = NULL, title = length(goi)) +
+  #   scale_fill_manual(values = c("#D9D9D9", "#A6CEE3")) +
+  #   scale_y_continuous(
+  #     sec.axis = dup_axis(),
+  #     breaks = seq(-100, 100, by = 5),
+  #     expand = expansion(mult = 0.15)
+  #   )
+  # 
+  # ggsave(filename, h = 2, w = 2, dpi = 600)
   
-  print(  
-    ggplot(
-    plot_df,
-    aes(x = group, y = log2fold)
-  ) +
-    # geom_violin(
-    #   lwd = 0.2,
-    #   fill = "firebrick2",
-    #   color = "black",
-    #   scale = "width"
-    # ) +
-    geom_boxplot(
-      outliers = F,
-      lwd = 0.2,
-      fill = "firebrick2",
-      color = "black",
-      width = 0.3
-    ) +
-    geom_point() +
-    theme_prismLike +
-    theme(
-      aspect.ratio = 1
-    ) +
-    labs(x = NULL) +
-    coord_cartesian(ylim = c(0, 3))
+  # ===== run t tests =====
+  
+  v1 = df %>%
+    filter(Gene %in% goi, group == g1) %>%
+    pull(log2fold)
+  
+  v2 = df %>%
+    filter(Gene %in% goi, group == g2) %>%
+    pull(log2fold)
+  
+  ttest = t.test(v1, v2, paired = TRUE)
+  p = ttest$p.value
+  meandiff = as.numeric(ttest$estimate)
+  mediandiff = median(v1) - median(v2)
+  
+  comparison = paste0(g2, " vs ", g1)
+  
+  out = data.frame(
+    comparison = comparison,
+    mean_diff = meandiff,
+    median_diff = mediandiff,
+    pval = p
   )
+  
+  ttest_results = rbind(ttest_results, out)
+  
 }
+
+cleanup_objects()
 
 ```
 
