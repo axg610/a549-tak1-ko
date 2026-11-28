@@ -1251,12 +1251,14 @@ count_hm <- Heatmap(
     colorscale = c("white", "firebrick2", "firebrick4"),
     scaleType = "one-sided",
     clipFactor = 1
-    ),
-  name = "count"
+  ),
+  name = "count",
+  width = unit(1, "in")
 )
 
+png("v2_count_heatmap.png", h = 5, w = 12, units = "in", res = 600)
 count_hm
-
+dev.off()
 
 
 # ===== heatmap of fold enrichment values =====
@@ -1285,15 +1287,19 @@ enrich_hm <- Heatmap(
   row_names_side = "left",
   show_row_dend = F,
   col = generic_l2f_heatmap_colors(
-    count_mat, 
+    enrich_mat, 
     colorscale = c("white", "firebrick2", "firebrick4"),
     scaleType = "one-sided",
     clipFactor = 1
     ),
-  name = "fold enrichment"
+  name = "fold enrichment",
+  width = unit(1, "in")
 )
 
+png("v2_enrich_heatmap.png", h = 5, w = 12, units = "in", res = 600)
 enrich_hm
+dev.off()
+
 
 # cleanup_objects()
 ```
